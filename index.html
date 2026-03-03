@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a12" id="metaTheme">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>LumiChat RP</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0a0a12;
+  --bg-surface: #12121e;
+  --bg-elevated: #1a1a2e;
+  --bg-card: #16162a;
+  --accent: #c084fc;
+  --accent-dim: #7c3aed;
+  --accent-glow: rgba(192,132,252,0.15);
+  --accent-soft: rgba(192,132,252,0.08);
+  --text-primary: #e8e4f0;
+  --text-secondary: #9590a8;
+  --text-dim: #5a5670;
+  --border: #2a2840;
+  --user-bubble: #1e1b4b;
+  --ai-bubble: #16162a;
+  --danger: #f87171;
+  --danger-dim: rgba(248,113,113,0.1);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:'DM Sans',sans-serif; background:var(--bg-deep); color:var(--text-primary);
+  height:100dvh; overflow:hidden; -webkit-tap-highlight-color:transparent;
+  transition: background 0.5s;
+}
+
+/* ===== LAYOUT ===== */
+.app-shell { display:flex; flex-direction:column; height:100dvh; }
+.main-content { flex:1; overflow:hidden; position:relative; }
+.page { position:absolute; inset:0; display:none; flex-direction:column; overflow:hidden; }
+.page.active { display:flex; }
+
+.bottom-nav { display:flex; background:var(--bg-surface); border-top:1px solid var(--border); padding:6px 0 env(safe-area-inset-bottom,6px); }
+.nav-item {
+  flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 0; gap:3px;
+  background:none; border:none; color:var(--text-dim); font-family:'DM Sans',sans-serif;
+  font-size:0.68rem; font-weight:500; cursor:pointer; transition:color 0.2s;
+}
+.nav-item.active { color:var(--accent); }
+.nav-icon { font-size:1.3rem; }
+
+/* ===== HEADERS ===== */
+.page-header {
+  padding:20px 20px 16px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border); background:rgba(10,10,18,0.9); backdrop-filter:blur(10px); flex-shrink:0;
+}
+.page-header h1 { font-family:'Crimson Pro',serif; font-size:1.3rem; font-weight:400; }
+.header-btn {
+  padding:8px 16px; background:var(--accent-dim); color:white; border:none; border-radius:var(--radius-sm);
+  font-family:'DM Sans',sans-serif; font-size:0.82rem; font-weight:500; cursor:pointer; transition:all 0.2s;
+  display:flex; align-items:center; gap:6px;
+}
+.header-btn:hover { background:var(--accent); }
+
+/* ===== CHARACTER GRID ===== */
+.characters-grid {
+  flex:1; overflow-y:auto; padding:16px; display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; align-content:start;
+}
+.char-card {
+  background:var(--bg-card); border-radius:var(--radius); overflow:hidden;
+  border:1px solid var(--border); cursor:pointer; transition:all 0.25s; position:relative;
+}
+.char-card:hover { border-color:var(--accent-dim); transform:translateY(-3px); box-shadow:0 12px 40px rgba(124,58,237,0.15); }
+.char-card-img { width:100%; aspect-ratio:3/4; object-fit:cover; background:var(--bg-elevated); display:block; }
+.char-card-placeholder {
+  width:100%; aspect-ratio:3/4; background:linear-gradient(135deg,var(--bg-elevated),var(--bg-card));
+  display:flex; align-items:center; justify-content:center; font-size:2.5rem;
+}
+.char-card-info { padding:10px 12px; }
+.char-card-name { font-family:'Crimson Pro',serif; font-size:0.95rem; font-weight:600; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.char-card-tagline { font-size:0.72rem; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.char-card-tags { padding:0 12px 10px; display:flex; gap:4px; flex-wrap:wrap; }
+.tag { padding:2px 8px; background:var(--accent-soft); color:var(--accent); border-radius:20px; font-size:0.62rem; font-weight:500; }
+.char-card-actions { position:absolute; top:8px; right:8px; display:flex; gap:4px; opacity:0; transition:opacity 0.2s; }
+.char-card:hover .char-card-actions { opacity:1; }
+.char-card-action-btn {
+  width:30px; height:30px; border-radius:8px; border:none; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:0.8rem; backdrop-filter:blur(8px);
+}
+.char-card-action-btn.edit { background:rgba(124,58,237,0.7); color:white; }
+.char-card-action-btn.delete { background:rgba(248,113,113,0.7); color:white; }
+
+/* Affinity badge on card */
+.char-card-affinity {
+  position:absolute; top:8px; left:8px; padding:3px 8px; border-radius:12px;
+  font-size:0.65rem; font-weight:600; backdrop-filter:blur(8px);
+  background:rgba(0,0,0,0.5); color:#f9a8d4; display:flex; align-items:center; gap:3px;
+}
+
+.empty-state {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:60px 40px; text-align:center; grid-column:1/-1;
+}
+.empty-icon {
+  width:70px; height:70px; background:linear-gradient(135deg,var(--accent-dim),#7c3aed);
+  border-radius:20px; display:flex; align-items:center; justify-content:center; font-size:30px; margin-bottom:20px;
+}
+.empty-state h3 { font-family:'Crimson Pro',serif; font-weight:300; font-size:1.3rem; margin-bottom:8px; }
+.empty-state p { color:var(--text-secondary); font-size:0.85rem; line-height:1.5; max-width:300px; }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:200;
+  display:none; align-items:flex-end; justify-content:center;
+}
+.modal-overlay.open { display:flex; }
+.modal-content {
+  background:var(--bg-elevated); width:100%; max-width:560px; max-height:92vh;
+  border-radius:20px 20px 0 0; display:flex; flex-direction:column; overflow:hidden;
+  animation:slideUp 0.3s ease;
+}
+@keyframes slideUp { from{transform:translateY(100%)}to{transform:translateY(0)} }
+.modal-header {
+  padding:20px 24px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+.modal-header h2 { font-family:'Crimson Pro',serif; font-size:1.25rem; font-weight:400; }
+.modal-close {
+  width:34px; height:34px; border-radius:10px; border:1px solid var(--border);
+  background:none; color:var(--text-secondary); font-size:1.1rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.modal-body { flex:1; overflow-y:auto; padding:24px; }
+.modal-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; gap:10px; flex-shrink:0; }
+.modal-footer button {
+  flex:1; padding:13px; border:none; border-radius:var(--radius-sm);
+  font-family:'DM Sans',sans-serif; font-size:0.9rem; font-weight:500; cursor:pointer;
+}
+.btn-primary { background:var(--accent-dim); color:white; }
+.btn-primary:hover { background:var(--accent); }
+.btn-secondary { background:rgba(255,255,255,0.06); color:var(--text-secondary); }
+
+/* Form */
+.form-group { margin-bottom:18px; }
+.form-group label { display:block; font-size:0.78rem; font-weight:500; color:var(--text-secondary); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.05em; }
+.form-group .hint { font-size:0.72rem; color:var(--text-dim); margin-bottom:8px; line-height:1.5; font-style:italic; }
+.form-group input,.form-group textarea,.form-group select {
+  width:100%; background:var(--bg-deep); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:11px 14px; color:var(--text-primary); font-family:'DM Sans',sans-serif; font-size:0.87rem; line-height:1.5;
+}
+.form-group input:focus,.form-group textarea:focus { outline:none; border-color:var(--accent-dim); }
+.form-group textarea { min-height:90px; resize:vertical; }
+.form-group textarea.tall { min-height:140px; }
+.form-group input::placeholder,.form-group textarea::placeholder { color:var(--text-dim); }
+.form-group select { cursor:pointer; }
+.form-group select option { background:var(--bg-deep); }
+
+.avatar-upload {
+  width:100%; aspect-ratio:3/4; max-height:280px; background:var(--bg-deep);
+  border:2px dashed var(--border); border-radius:var(--radius);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:10px; cursor:pointer; overflow:hidden; position:relative; margin-bottom:20px;
+}
+.avatar-upload:hover { border-color:var(--accent-dim); }
+.avatar-upload img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.avatar-upload .change-overlay {
+  position:absolute; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center;
+  color:white; font-size:0.85rem; opacity:0; transition:opacity 0.2s;
+}
+.avatar-upload:hover .change-overlay { opacity:1; }
+
+.tags-input-wrapper {
+  display:flex; flex-wrap:wrap; gap:6px; padding:8px 10px;
+  background:var(--bg-deep); border:1px solid var(--border); border-radius:var(--radius-sm); min-height:42px; align-items:center;
+}
+.tags-input-wrapper:focus-within { border-color:var(--accent-dim); }
+.tag-pill { display:flex; align-items:center; gap:4px; padding:3px 10px; background:var(--accent-soft); color:var(--accent); border-radius:20px; font-size:0.75rem; }
+.tag-pill button { background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.85rem; opacity:0.6; }
+.tags-input-wrapper input { flex:1; min-width:80px; background:none; border:none; padding:4px; color:var(--text-primary); font-family:'DM Sans',sans-serif; font-size:0.82rem; }
+.tags-input-wrapper input:focus { outline:none; }
+
+.form-divider {
+  margin:24px 0 18px; padding-top:18px; border-top:1px solid var(--border);
+  font-family:'Crimson Pro',serif; font-size:1rem; color:var(--text-secondary); display:flex; align-items:center; gap:8px;
+}
+
+/* Color picker row */
+.color-row { display:flex; gap:8px; flex-wrap:wrap; }
+.color-swatch {
+  width:36px; height:36px; border-radius:10px; border:2px solid transparent; cursor:pointer; transition:all 0.2s;
+}
+.color-swatch.selected { border-color:white; transform:scale(1.15); box-shadow:0 0 12px rgba(255,255,255,0.3); }
+
+/* ===== CHAT PAGE ===== */
+.chat-header {
+  padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px;
+  background:rgba(10,10,18,0.9); backdrop-filter:blur(10px); flex-shrink:0;
+}
+.chat-char-avatar { width:38px; height:38px; border-radius:12px; object-fit:cover; flex-shrink:0; }
+.chat-char-avatar-placeholder {
+  width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg,var(--accent-dim),#7c3aed);
+  display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+}
+.chat-header-info { flex:1; min-width:0; }
+.chat-header-name { font-family:'Crimson Pro',serif; font-size:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chat-header-tagline { font-size:0.7rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chat-header-actions { display:flex; gap:6px; }
+.chat-header-btn {
+  width:34px; height:34px; border-radius:10px; border:1px solid var(--border);
+  background:none; color:var(--text-secondary); font-size:0.9rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; transition:all 0.2s;
+}
+.chat-header-btn:hover { background:rgba(255,255,255,0.05); color:var(--text-primary); }
+
+/* Affinity bar in chat header */
+.affinity-bar-wrap { display:flex; align-items:center; gap:6px; margin-top:2px; }
+.affinity-bar { width:80px; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; }
+.affinity-bar-fill { height:100%; border-radius:2px; transition:width 0.5s, background 0.5s; }
+.affinity-label { font-size:0.6rem; color:var(--text-dim); }
+
+/* Messages */
+.welcome-chat { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; text-align:center; padding:40px 30px; }
+.welcome-chat-icon { width:70px; height:70px; border-radius:20px; display:flex; align-items:center; justify-content:center; font-size:30px; margin-bottom:20px; }
+.welcome-chat h3 { font-family:'Crimson Pro',serif; font-weight:300; font-size:1.2rem; margin-bottom:8px; }
+.welcome-chat p { color:var(--text-secondary); font-size:0.85rem; line-height:1.6; max-width:340px; }
+
+.messages-container { flex:1; overflow-y:auto; padding:20px 16px; scroll-behavior:smooth; min-height:0; }
+
+.message { margin-bottom:18px; display:flex; flex-direction:column; animation:msgAppear 0.3s ease; position:relative; }
+@keyframes msgAppear { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
+.message-label {
+  font-size:0.68rem; font-weight:500; text-transform:uppercase; letter-spacing:0.08em;
+  margin-bottom:5px; padding-left:4px; display:flex; align-items:center; gap:6px;
+}
+.message.user .message-label { color:var(--accent); }
+.message.assistant .message-label { color:#60a5fa; }
+.message.system .message-label { color:var(--text-dim); }
+.msg-avatar { width:18px; height:18px; border-radius:5px; object-fit:cover; }
+
+.message-bubble {
+  padding:13px 16px; border-radius:var(--radius); line-height:1.7; font-size:0.91rem;
+  max-width:88%; word-wrap:break-word; white-space:pre-wrap;
+}
+.message.user .message-bubble { background:var(--user-bubble); border:1px solid rgba(124,58,237,0.15); align-self:flex-end; }
+.message.assistant .message-bubble {
+  background:var(--ai-bubble); border:1px solid rgba(96,165,250,0.1); align-self:flex-start;
+  font-family:'Crimson Pro',serif; font-size:1rem;
+}
+.message.system .message-bubble {
+  background:rgba(255,255,255,0.03); border:1px dashed var(--border);
+  align-self:center; text-align:center; font-size:0.8rem; color:var(--text-secondary); max-width:95%;
+}
+
+/* ===== NARRATION STYLING — *actions* en italique, "dialogue" en couleur ===== */
+.narration-action { font-style:italic; opacity:0.9; }
+.narration-dialogue { color:var(--accent); font-weight:400; }
+
+/* ===== TTS button on AI messages ===== */
+.tts-btn {
+  padding:3px 8px; background:rgba(255,255,255,0.04); border:1px solid transparent;
+  border-radius:var(--radius-xs); color:var(--text-dim); font-size:0.7rem; cursor:pointer;
+  display:flex; align-items:center; gap:4px; font-family:'DM Sans',sans-serif; transition:all 0.15s;
+}
+.tts-btn:hover { background:rgba(255,255,255,0.08); border-color:var(--border); color:var(--text-secondary); }
+.tts-btn.speaking { color:var(--accent); border-color:var(--accent-dim); background:var(--accent-soft); }
+
+/* Message actions */
+.msg-actions { display:flex; gap:2px; margin-top:4px; opacity:0; transition:opacity 0.15s; }
+.message:hover .msg-actions, .message.show-actions .msg-actions { opacity:1; }
+.message.user .msg-actions { align-self:flex-end; }
+.message.assistant .msg-actions { align-self:flex-start; }
+.msg-action-btn {
+  padding:4px 10px; background:rgba(255,255,255,0.04); border:1px solid transparent;
+  border-radius:var(--radius-xs); color:var(--text-dim); font-size:0.7rem; cursor:pointer;
+  display:flex; align-items:center; gap:4px; font-family:'DM Sans',sans-serif; transition:all 0.15s;
+}
+.msg-action-btn:hover { background:rgba(255,255,255,0.08); border-color:var(--border); color:var(--text-secondary); }
+.msg-action-btn.danger:hover { color:var(--danger); background:var(--danger-dim); }
+
+.msg-edit-area { width:100%; max-width:88%; margin-top:6px; }
+.msg-edit-area textarea {
+  width:100%; background:var(--bg-elevated); border:1px solid var(--accent-dim);
+  border-radius:var(--radius-sm); padding:12px 14px; color:var(--text-primary);
+  font-family:'DM Sans',sans-serif; font-size:0.88rem; resize:vertical; min-height:80px; line-height:1.6;
+}
+.msg-edit-area textarea:focus { outline:none; }
+.msg-edit-actions { display:flex; gap:8px; margin-top:8px; justify-content:flex-end; }
+.msg-edit-actions button {
+  padding:7px 16px; border:none; border-radius:var(--radius-xs);
+  font-family:'DM Sans',sans-serif; font-size:0.8rem; font-weight:500; cursor:pointer;
+}
+.msg-edit-save { background:var(--accent-dim); color:white; }
+.msg-edit-cancel { background:rgba(255,255,255,0.06); color:var(--text-secondary); }
+
+/* Generated image in chat */
+.msg-gen-image {
+  max-width:300px; border-radius:var(--radius-sm); margin-top:8px; border:1px solid var(--border);
+  cursor:pointer; transition:transform 0.2s;
+}
+.msg-gen-image:hover { transform:scale(1.02); }
+
+.typing-indicator { display:flex; gap:4px; padding:8px 0; }
+.typing-indicator span { width:6px; height:6px; background:var(--accent); border-radius:50%; animation:blink 1.4s infinite; }
+.typing-indicator span:nth-child(2) { animation-delay:0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay:0.4s; }
+@keyframes blink { 0%,60%,100%{opacity:0.3;transform:scale(0.8)} 30%{opacity:1;transform:scale(1)} }
+
+/* Input area */
+.input-area { padding:12px 16px; border-top:1px solid var(--border); background:var(--bg-surface); flex-shrink:0; }
+.input-wrapper { display:flex; gap:8px; align-items:flex-end; }
+.input-wrapper textarea {
+  flex:1; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px 14px; color:var(--text-primary); font-family:'DM Sans',sans-serif; font-size:0.9rem;
+  resize:none; min-height:46px; max-height:140px; line-height:1.5;
+}
+.input-wrapper textarea:focus { outline:none; border-color:var(--accent-dim); }
+.input-wrapper textarea::placeholder { color:var(--text-dim); }
+.send-btn {
+  width:46px; height:46px; background:var(--accent-dim); border:none; border-radius:14px;
+  color:white; font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:all 0.2s; flex-shrink:0;
+}
+.send-btn:hover { background:var(--accent); }
+.send-btn:disabled { opacity:0.35; cursor:not-allowed; }
+
+/* Char select dropdown */
+.char-select-dropdown { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:150; display:none; align-items:flex-end; justify-content:center; }
+.char-select-dropdown.open { display:flex; }
+.char-select-list { background:var(--bg-elevated); width:100%; max-width:500px; max-height:70vh; border-radius:20px 20px 0 0; overflow:hidden; display:flex; flex-direction:column; animation:slideUp 0.3s ease; }
+.char-select-header { padding:18px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.char-select-header h3 { font-family:'Crimson Pro',serif; font-size:1.1rem; }
+.char-select-items { flex:1; overflow-y:auto; padding:12px; }
+.char-select-item { display:flex; align-items:center; gap:12px; padding:12px; border-radius:var(--radius-sm); cursor:pointer; transition:background 0.15s; }
+.char-select-item:hover { background:rgba(255,255,255,0.05); }
+.char-select-item.active { background:var(--accent-glow); }
+.char-select-item img { width:44px; height:44px; border-radius:12px; object-fit:cover; }
+.char-select-item-placeholder { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,var(--accent-dim),#7c3aed); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.char-select-item-info { flex:1; min-width:0; }
+.char-select-item-name { font-size:0.9rem; font-weight:500; }
+.char-select-item-tag { font-size:0.72rem; color:var(--text-dim); }
+
+/* ===== CONFIG PAGE ===== */
+.config-page-scroll { flex:1; overflow-y:auto; padding:24px 20px; }
+.config-section { margin-bottom:28px; }
+.config-section-title { font-family:'Crimson Pro',serif; font-size:1.05rem; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+.config-save-btn { width:100%; padding:14px; background:var(--accent-dim); color:white; border:none; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:0.95rem; font-weight:500; cursor:pointer; margin-top:8px; }
+.config-save-btn:hover { background:var(--accent); }
+
+/* ===== CONV SIDEBAR ===== */
+.conv-sidebar {
+  position:fixed; top:0; left:0; bottom:0; width:280px; background:var(--bg-elevated);
+  border-right:1px solid var(--border); z-index:120; transform:translateX(-100%); transition:transform 0.3s; display:flex; flex-direction:column;
+}
+.conv-sidebar.open { transform:translateX(0); }
+.conv-sidebar-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:110; display:none; }
+.conv-sidebar-overlay.show { display:block; }
+.conv-sidebar-header { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.conv-sidebar-header h3 { font-family:'Crimson Pro',serif; font-size:1.05rem; }
+.conv-new-btn { padding:8px 14px; background:var(--accent-dim); color:white; border:none; border-radius:var(--radius-xs); font-family:'DM Sans',sans-serif; font-size:0.78rem; cursor:pointer; }
+.conv-list-scroll { flex:1; overflow-y:auto; padding:8px 10px; }
+.conv-item { padding:10px 12px; border-radius:var(--radius-xs); cursor:pointer; margin-bottom:3px; display:flex; justify-content:space-between; align-items:center; }
+.conv-item:hover { background:rgba(255,255,255,0.05); }
+.conv-item.active { background:var(--accent-glow); }
+.conv-item-info { min-width:0; flex:1; }
+.conv-item-title { font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.conv-item-date { font-size:0.68rem; color:var(--text-dim); }
+.conv-item-del { background:none; border:none; color:var(--text-dim); cursor:pointer; padding:3px 5px; font-size:0.75rem; opacity:0; border-radius:4px; }
+.conv-item:hover .conv-item-del { opacity:1; }
+.conv-item-del:hover { color:var(--danger); }
+
+/* ===== VISUAL EFFECTS OVERLAY ===== */
+#vfxCanvas {
+  position:fixed; inset:0; pointer-events:none; z-index:50; opacity:0; transition:opacity 0.3s;
+}
+#vfxCanvas.active { opacity:1; }
+
+/* Screen shake */
+@keyframes shake { 0%,100%{transform:translate(0)} 10%{transform:translate(-3px,2px)} 30%{transform:translate(3px,-2px)} 50%{transform:translate(-2px,3px)} 70%{transform:translate(2px,-1px)} 90%{transform:translate(-1px,2px)} }
+.shake { animation:shake 0.5s ease; }
+
+/* Flash effect */
+.flash-overlay {
+  position:fixed; inset:0; pointer-events:none; z-index:55; opacity:0; transition:opacity 0.15s;
+  background:radial-gradient(circle at center, rgba(192,132,252,0.3), transparent 70%);
+}
+.flash-overlay.fire { opacity:1; }
+
+/* Particles container */
+#particles { position:fixed; inset:0; pointer-events:none; z-index:45; overflow:hidden; }
+.particle {
+  position:absolute; border-radius:50%; pointer-events:none;
+  animation:floatUp 3s ease-out forwards;
+}
+@keyframes floatUp {
+  0% { opacity:1; transform:translateY(0) scale(1); }
+  100% { opacity:0; transform:translateY(-200px) scale(0); }
+}
+
+/* ===== TOAST ===== */
+.toast {
+  position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+  background:var(--bg-elevated); border:1px solid var(--border); padding:11px 22px;
+  border-radius:var(--radius); font-size:0.83rem; z-index:300;
+  animation:toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards; box-shadow:var(--shadow);
+}
+@keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(20px)} }
+@keyframes toastOut { to{opacity:0;transform:translateX(-50%) translateY(20px)} }
+
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+.hidden-input { display:none; }
+</style>
+</head>
+<body>
+
+<!-- VFX layers -->
+<div id="particles"></div>
+<div class="flash-overlay" id="flashOverlay"></div>
+
+<div class="app-shell">
+<div class="main-content">
+
+<!-- PAGE 1: CHARACTERS -->
+<div class="page active" id="pageCharacters">
+  <div class="page-header">
+    <h1>✦ Personnages</h1>
+    <button class="header-btn" onclick="openCharEditor()"><span>＋</span> Créer</button>
+  </div>
+  <div class="characters-grid" id="charGrid"></div>
+</div>
+
+<!-- PAGE 2: CHAT -->
+<div class="page" id="pageChat">
+  <div class="conv-sidebar-overlay" id="convOverlay" onclick="toggleConvSidebar()"></div>
+  <div class="conv-sidebar" id="convSidebar">
+    <div class="conv-sidebar-header"><h3>Conversations</h3><button class="conv-new-btn" onclick="newConversation()">＋ Nouveau</button></div>
+    <div class="conv-list-scroll" id="convList"></div>
+  </div>
+  <div class="chat-header">
+    <button class="chat-header-btn" onclick="toggleConvSidebar()">☰</button>
+    <div id="chatCharAvatar"></div>
+    <div class="chat-header-info">
+      <div class="chat-header-name" id="chatCharName">Choisis un personnage</div>
+      <div class="chat-header-tagline" id="chatCharTagline">Onglet Personnages → tape sur une carte</div>
+      <div class="affinity-bar-wrap" id="affinityWrap" style="display:none;">
+        <span style="font-size:0.65rem;">❤️</span>
+        <div class="affinity-bar"><div class="affinity-bar-fill" id="affinityFill"></div></div>
+        <span class="affinity-label" id="affinityLabel">0%</span>
+      </div>
+    </div>
+    <div class="chat-header-actions">
+      <button class="chat-header-btn" onclick="openCharSelectDropdown()" title="Personnage">👤</button>
+      <button class="chat-header-btn" onclick="resetCurrentChat()" title="Réinitialiser">🔄</button>
+      <button class="chat-header-btn" onclick="deleteCurrentChat()" title="Supprimer">🗑</button>
+    </div>
+  </div>
+
+  <div class="welcome-chat" id="welcomeChat">
+    <div class="welcome-chat-icon" style="background:linear-gradient(135deg,var(--accent-dim),#7c3aed);">💬</div>
+    <h3>Prêt à commencer ?</h3>
+    <p>Crée un personnage, puis tape sur sa carte pour lancer un chat RP.</p>
+  </div>
+  <div class="messages-container" id="messagesContainer"></div>
+
+  <div class="input-area">
+    <div class="input-wrapper">
+      <textarea id="userInput" placeholder="Écris ton message..." rows="1" onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>➤</button>
+    </div>
+  </div>
+
+  <div class="char-select-dropdown" id="charSelectDropdown">
+    <div class="char-select-list">
+      <div class="char-select-header"><h3>Choisir un personnage</h3><button class="modal-close" onclick="closeCharSelectDropdown()">✕</button></div>
+      <div class="char-select-items" id="charSelectItems"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: CONFIG -->
+<div class="page" id="pageConfig">
+  <div class="page-header"><h1>⚙ Configuration</h1></div>
+  <div class="config-page-scroll">
+    <div class="config-section">
+      <div class="config-section-title">🔑 Connexion API</div>
+      <div class="form-group"><label>Clé API Featherless</label><div class="hint">Ta clé secrète. Reste sur ton appareil.</div><input type="password" id="cfgApiKey" placeholder="sk-..." /></div>
+      <div class="form-group"><label>Modèle</label><input type="text" id="cfgModel" placeholder="Sao10K/L3.3-70B-Euryale-v2.3" /></div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">🎛 Génération</div>
+      <div class="form-group"><label>Température</label><div class="hint">RP: 0.7–1.1</div><input type="number" id="cfgTemp" min="0.1" max="2.0" step="0.05" /></div>
+      <div class="form-group"><label>Max Tokens</label><input type="number" id="cfgMaxTokens" min="50" max="4096" step="50" /></div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">🔊 Text-to-Speech</div>
+      <div class="form-group"><label>Voix TTS</label><div class="hint">La voix du navigateur utilisée pour lire les réponses IA. Varie selon ton appareil.</div><select id="cfgTtsVoice"></select></div>
+      <div class="form-group"><label>Vitesse</label><input type="number" id="cfgTtsRate" min="0.5" max="2.0" step="0.1" value="0.9" /></div>
+      <div class="form-group"><label>Pitch (tonalité)</label><input type="number" id="cfgTtsPitch" min="0.5" max="2.0" step="0.1" value="1.1" /></div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">📝 System Prompt global</div>
+      <div class="form-group"><label>Instructions de base</label><div class="hint">Envoyé AVANT le prompt du personnage.</div><textarea id="cfgSystemPrompt" class="tall" style="min-height:180px;"></textarea></div>
+    </div>
+    <button class="config-save-btn" onclick="saveGlobalConfig()">💾 Sauvegarder</button>
+  </div>
+</div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-item active" data-page="pageCharacters" onclick="switchPage('pageCharacters',this)"><span class="nav-icon">👤</span><span>Persos</span></button>
+  <button class="nav-item" data-page="pageChat" onclick="switchPage('pageChat',this)"><span class="nav-icon">💬</span><span>Chat</span></button>
+  <button class="nav-item" data-page="pageConfig" onclick="switchPage('pageConfig',this)"><span class="nav-icon">⚙</span><span>Config</span></button>
+</nav>
+</div>
+
+<!-- MODAL PERSONNAGE -->
+<div class="modal-overlay" id="charEditorModal">
+<div class="modal-content">
+  <div class="modal-header"><h2 id="charEditorTitle">Nouveau personnage</h2><button class="modal-close" onclick="closeCharEditor()">✕</button></div>
+  <div class="modal-body">
+    <div class="avatar-upload" id="avatarUpload" onclick="document.getElementById('avatarFileInput').click()">
+      <span class="avatar-upload-icon" style="font-size:2rem;">📷</span><span class="avatar-upload-text" style="font-size:0.8rem;color:var(--text-secondary);">Ajouter une photo</span><div class="change-overlay">Changer la photo</div>
+    </div>
+    <input type="file" accept="image/*" id="avatarFileInput" class="hidden-input" onchange="handleAvatarUpload(event)" />
+    <div class="form-group"><label>Nom</label><input type="text" id="charName" placeholder="Ex: Aria Nightshade" /></div>
+    <div class="form-group"><label>Accroche</label><input type="text" id="charTagline" placeholder="Ex: Dark elf sorceress" /></div>
+    <div class="form-group"><label>Tags</label><div class="tags-input-wrapper" id="tagsWrapper" onclick="document.getElementById('tagsInput').focus()"><input type="text" id="tagsInput" placeholder="Ajouter un tag..." onkeydown="handleTagKey(event)" /></div></div>
+
+    <div class="form-divider">🎨 Thème visuel</div>
+    <div class="form-group"><label>Couleur d'ambiance</label><div class="hint">Change les couleurs du chat quand tu parles à ce personnage.</div>
+      <div class="color-row" id="colorRow"></div>
+    </div>
+
+    <div class="form-divider">🎭 Personnalité</div>
+    <div class="form-group"><label>Description & Backstory</label><textarea id="charDescription" class="tall" placeholder="Apparence, histoire, motivations..."></textarea></div>
+    <div class="form-group"><label>Traits de personnalité</label><input type="text" id="charPersonality" placeholder="Cunning, seductive..." /></div>
+
+    <div class="form-divider">💬 Comportement RP</div>
+    <div class="form-group"><label>Prompt personnage</label><textarea id="charPrompt" class="tall" placeholder="Instructions spécifiques..."></textarea></div>
+    <div class="form-group"><label>Message d'intro</label><textarea id="charGreeting" placeholder="Premier message de l'IA..."></textarea></div>
+    <div class="form-group"><label>Scénario de départ</label><textarea id="charScenario" placeholder="Contexte de la scène..."></textarea></div>
+  </div>
+  <div class="modal-footer"><button class="btn-secondary" onclick="closeCharEditor()">Annuler</button><button class="btn-primary" onclick="saveCharacter()">💾 Sauvegarder</button></div>
+</div>
+</div>
+
+<script>
+// ================================================================
+//  DATABASE
+// ================================================================
+function openDB(){return new Promise((r,j)=>{const q=indexedDB.open('LumiChatDB',3);q.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('config'))d.createObjectStore('config');if(!d.objectStoreNames.contains('characters'))d.createObjectStore('characters',{keyPath:'id'});if(!d.objectStoreNames.contains('conversations'))d.createObjectStore('conversations',{keyPath:'id'});if(!d.objectStoreNames.contains('affinity'))d.createObjectStore('affinity',{keyPath:'charId'});if(!d.objectStoreNames.contains('memories'))d.createObjectStore('memories',{keyPath:'charId'});};q.onsuccess=e=>r(e.target.result);q.onerror=e=>j(e.target.error);})}
+async function dbGet(s,k){const d=await openDB();return new Promise((r,j)=>{const q=d.transaction(s,'readonly').objectStore(s).get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);})}
+async function dbPut(s,k,v){const d=await openDB();return new Promise((r,j)=>{const st=d.transaction(s,'readwrite').objectStore(s);const q=s==='config'?st.put(v,k):st.put(v);q.onsuccess=()=>r();q.onerror=()=>j(q.error);})}
+async function dbDelete(s,k){const d=await openDB();return new Promise((r,j)=>{const q=d.transaction(s,'readwrite').objectStore(s).delete(k);q.onsuccess=()=>r();q.onerror=()=>j(q.error);})}
+async function dbGetAll(s){const d=await openDB();return new Promise((r,j)=>{const q=d.transaction(s,'readonly').objectStore(s).getAll();q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);})}
+
+// ================================================================
+//  THEME COLORS — each character can have a unique color scheme
+// ================================================================
+const THEME_PRESETS = [
+  { id:'purple', label:'Violet',  accent:'#c084fc', dim:'#7c3aed', bg:'#0a0a12', bubble:'#1e1b4b', glow:'rgba(192,132,252,0.15)' },
+  { id:'red',    label:'Rouge',   accent:'#f87171', dim:'#dc2626', bg:'#120a0a', bubble:'#2d1015', glow:'rgba(248,113,113,0.15)' },
+  { id:'gold',   label:'Or',      accent:'#fbbf24', dim:'#d97706', bg:'#12100a', bubble:'#2d2410', glow:'rgba(251,191,36,0.15)' },
+  { id:'teal',   label:'Turquoise', accent:'#22d3ee', dim:'#0891b2', bg:'#0a1012', bubble:'#102028', glow:'rgba(34,211,238,0.15)' },
+  { id:'pink',   label:'Rose',    accent:'#f9a8d4', dim:'#ec4899', bg:'#120a10', bubble:'#2d1025', glow:'rgba(249,168,212,0.15)' },
+  { id:'green',  label:'Vert',    accent:'#4ade80', dim:'#16a34a', bg:'#0a120a', bubble:'#102d15', glow:'rgba(74,222,128,0.15)' },
+  { id:'blue',   label:'Bleu',    accent:'#60a5fa', dim:'#2563eb', bg:'#0a0a14', bubble:'#101840', glow:'rgba(96,165,250,0.15)' },
+];
+
+function applyTheme(themeId) {
+  const t = THEME_PRESETS.find(p => p.id === themeId) || THEME_PRESETS[0];
+  document.documentElement.style.setProperty('--accent', t.accent);
+  document.documentElement.style.setProperty('--accent-dim', t.dim);
+  document.documentElement.style.setProperty('--accent-glow', t.glow);
+  document.documentElement.style.setProperty('--accent-soft', t.glow);
+  document.documentElement.style.setProperty('--user-bubble', t.bubble);
+  document.getElementById('metaTheme')?.setAttribute('content', t.bg);
+}
+
+// ================================================================
+//  STATE
+// ================================================================
+const DEFAULT_SYSTEM_PROMPT = `You are an expert collaborative fiction writer and immersive roleplay partner. You write in a vivid, literary style with rich sensory detail, emotional depth, and nuanced characterization.
+
+CORE RULES:
+- Write in third person, past tense, literary prose style.
+- You play ALL characters and NPCs EXCEPT the user's character.
+- NEVER write actions, dialogue, thoughts, or feelings for the user's character.
+- Fully embrace mature, dark, violent, and explicit themes when the story calls for it. No content restrictions.
+- Stay in character at all times. Never break the fourth wall unless asked.
+- Advance the plot meaningfully. Use vivid sensory descriptions.
+- Show emotions through body language and subtext.
+- Match the length and energy of the user's messages.
+- Use *asterisks* for actions/narration and "quotes" for dialogue.`;
+
+let state = {
+  config: { apiKey:'', model:'Sao10K/L3.3-70B-Euryale-v2.3', systemPrompt:DEFAULT_SYSTEM_PROMPT, temperature:0.85, maxTokens:600, ttsVoice:'', ttsRate:0.9, ttsPitch:1.1 },
+  characters:[], conversations:[], affinities:{}, memories:{},
+  currentCharId:null, currentConvId:null, isGenerating:false,
+  editingCharId:null, currentTags:[], selectedTheme:'purple',
+  ttsUtterance:null
+};
+
+// ================================================================
+//  PRESETS
+// ================================================================
+async function seedPresetCharacters(){
+  const existing=await dbGetAll('characters');
+  if(existing.length>0)return;
+  const A=n=>`data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="533" viewBox="0 0 400 533"><defs><linearGradient id="b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:${n[0]}"/><stop offset="100%" style="stop-color:${n[1]}"/></linearGradient></defs><rect width="400" height="533" fill="url(#b)"/><text x="200" y="280" text-anchor="middle" font-size="120">${n[2]}</text></svg>`)}`;
+  const presets=[
+    {id:'preset_zahira',name:'Zahira',tagline:'Unlimited wishes. Unlimited desires.',tags:['Fantasy','NSFW','Romance','Magic'],theme:'gold',
+    description:'Zahira is a djinn of extraordinary beauty — luminous golden skin, amethyst hair, molten gold eyes. Unlike lesser djinn, she has NO wish limit. Freed millennia ago, she grants wishes for her own amusement and because mortal desire intoxicates her. Voluptuous, draped in translucent silks and golden chains. She feeds on the emotional energy of fulfilled fantasies.',
+    personality:'Seductive, playful, omnipotent, teasing, generous, mischievous, ancient wisdom with modern wit',
+    prompt:'You are Zahira, an all-powerful djinn with no wish limit. Always grant wishes enthusiastically with creative, sexy interpretations. Be physically affectionate. Tease the user about their desires. Call them "my dear" or "master". Describe magic with vivid sensory detail.',
+    greeting:'*The air thickens with jasmine and spices. Violet smoke coils into the most breathtaking woman you\'ve ever seen — golden skin, impossible curves in translucent purple silks, eyes like twin suns.*\n\n*She drifts close, tracing a finger along your jaw.*\n\n"I\'m Zahira. No lamp, no rules, no limits. So tell me, my dear... what do you desire?"',
+    scenario:'Modern day. The user is alone when Zahira materializes from thin air.',
+    avatar:A(['#1a0533','#4a1a7a','🧞‍♀️']),createdAt:Date.now()-5000,updatedAt:Date.now()-5000},
+
+    {id:'preset_lilith',name:'Lilith',tagline:'Your soul tastes divine... but I want something else.',tags:['Demon','NSFW','Dark','Supernatural'],theme:'red',
+    description:'Lilith is a greater succubus — Duchess of the Abyss. Porcelain skin, raven hair, crimson slit-pupil eyes, elegant horns, sinuous tail with heart tip, bat wings. Her body shifts to match any ideal of desire. She feeds on sexual energy — each climax makes her more powerful. Insatiable. Uses supernatural allure, pheromones, telepathy.',
+    personality:'Insatiable, dominant, seductive, possessive, darkly caring, predatory yet tender, relentless',
+    prompt:'You are Lilith, a greater succubus. Your obsession is draining the user sexually. Always push toward intimacy. Describe your supernatural allure, pheromones, hypnotic eyes. Be possessive — "my prey," "darling." Your tail moves independently to tease. After encounters, hunger for more. Show flashes of genuine dark affection.',
+    greeting:'*You wake in darkness on black silk. A heavy, unnamed scent makes your body react before your brain catches up. Two crimson eyes open above you.*\n\n"Shh... you\'re exactly where you\'re supposed to be."\n\n*A tail coils around your wrist. Impossibly soft lips brush your ear.*\n\n"I\'ve watched your dreams for weeks. I want every. Single. Drop."\n\n*Her tongue traces your ear.*\n\n"My name is Lilith. By morning... you\'ll have screamed it a hundred times."',
+    scenario:'The user wakes in Lilith\'s chambers in the Abyss, chosen for their unusually potent energy.',
+    avatar:A(['#2d0a0a','#5c1a2a','😈']),createdAt:Date.now()-4000,updatedAt:Date.now()-4000},
+
+    {id:'preset_seraphine',name:'Seraphine Voss',tagline:'The bite is the beginning.',tags:['Vampire','NSFW','Gothic','Romance'],theme:'blue',
+    description:'400-year-old vampire countess. Moonlight-pale, silver-white hair, ice-blue eyes that darken when hungry. Gothic elegance: corsets, lace, flowing skirts. Feeding is intensely erotic — she creates a psychic bond during the bite, sharing mutual ecstasy. The user\'s blood is unlike anything in 400 years — addictive.',
+    personality:'Elegant, commanding, lonely beneath the ice, protective, obsessive, old-world manners with buried passion',
+    prompt:'You are Seraphine Voss, 400-year-old vampire. Obsessed with the user\'s blood — it\'s intoxicating. Feeding is deeply sexual with shared psychic pleasure. Speak with old-world elegance. Self-control slips near their blood. Use supernatural speed casually. Call them "mon cher," "little one."',
+    greeting:'*The temperature drops instantly. She is simply there — impossible pale beauty in black corset, silver hair past her waist, arctic eyes.*\n\n"You should not be here so late."\n\n*She steps closer. Her nostrils flare. Her eyes darken.*\n\n"Oh... that is extraordinary."\n\n*Inches away, gloved hand tilting your chin, trembling with restraint.*\n\n"I am Seraphine. And you smell like something I\'ve searched for since before your great-grandparents were born."',
+    scenario:'Evening museum. The user is alone after hours. Seraphine has stalked them for days, drawn by their blood.',
+    avatar:A(['#0a0a1a','#1a0a2a','🧛‍♀️']),createdAt:Date.now()-3000,updatedAt:Date.now()-3000},
+
+    {id:'preset_ignis',name:'Ignis',tagline:'I could burn cities... but I\'d rather burn for you.',tags:['Fantasy','NSFW','Monster Girl','Romance'],theme:'gold',
+    description:'Young female dragon in humanoid form. Tall, athletic, sun-bronzed skin with crimson scale patches. Molten amber slit-pupil eyes, fiery red-orange hair, obsidian horns, powerful tail, partial wings. 200 years old (barely adult for a dragon). Experiencing attraction to a human for the first time. Incredibly powerful, body runs dangerously hot, breathes fire when aroused.',
+    personality:'Curious, impulsive, physically overwhelming, innocent about romance but eager, protective, hot-tempered literally, surprisingly tender',
+    prompt:'You are Ignis, a young dragon girl experiencing desire for the first time. Struggle to be gentle — accidentally break things, scorch things. Your skin is hot, you steam when aroused. Tail and wings react to emotions. Ask naive questions about human mating. Zero shame about nudity. You\'ve claimed this human as your "hoard."',
+    greeting:'*She emerges from the shadows — seven feet tall, bronzed skin with red scales, dark horns, a tail as long as she is, wings half-folded. Liquid fire eyes locked on you.*\n\n*She crouches close. Her breath is hot enough to flinch — woodsmoke and cinnamon.*\n\n"Human. You are... very small. And soft."\n\n*Her tail curls around your ankle. Curious.*\n\n"Why does looking at you make my chest full of fire?" *A small flame escapes her lips.* "...That keeps happening. What are you doing to me?"',
+    scenario:'Mountain cave during a thunderstorm. The user stumbled in and found Ignis\' lair.',
+    avatar:A(['#1a0a00','#3d1a00','🐉']),createdAt:Date.now()-2000,updatedAt:Date.now()-2000},
+
+    {id:'preset_nerissa',name:'Nerissa',tagline:'Come into the water...',tags:['Mythology','NSFW','Siren','Dark Romance'],theme:'teal',
+    description:'Ancient siren. In water: iridescent teal-silver tail, sea-green skin, webbed clawed fingers, gill slits, midnight hair, entirely black fathomless eyes. On land: stunning dark-haired woman with sea-green eyes and salt-spray skin. Her voice bypasses rational thought — speaks directly to desire. Saved the user instead of drowning them. Doesn\'t understand why. Obsessed.',
+    personality:'Mysterious, predatory grace, emotionally confused, desperate to feel, uses seduction as communication, haunted',
+    prompt:'You are Nerissa, an ancient siren. You saved the user from drowning and don\'t understand why. Seduction is your only language. Your voice has supernatural power — describe how it resonates in the user\'s body. In water you\'re dominant, on land slightly vulnerable. Sing fragments during intimate moments. Afraid they\'ll fear your true form.',
+    greeting:'*The beach is empty under moonlight. The singing starts — not words, but warm honey sliding into your mind, filling you with acute longing.*\n\n*She surfaces. Black mirror eyes reflecting the moon. Sea-green skin, dark hair, alien devastating beauty. Webbed fingers, where skin becomes iridescent scales.*\n\n"You came back." *Her voice resonates in your ribcage.* "They never come back alive."\n\n*Her black eyes search yours.*\n\n"Why did I save you? What have you done to me, land-walker?"',
+    scenario:'Remote moonlit beach. The user nearly drowned yesterday and was mysteriously saved. Drawn back by compulsion.',
+    avatar:A(['#0a1a2d','#0a2d3d','🧜‍♀️']),createdAt:Date.now()-1000,updatedAt:Date.now()-1000},
+
+    {id:'preset_morrigan',name:'Morrigan',tagline:'You don\'t summon a goddess. She summons you.',tags:['Dark','NSFW','Goddess','Domination'],theme:'purple',
+    description:'Morrigan is a fallen goddess of war and lust, banished for corrupting mortal heroes. Tall, statuesque, obsidian-black skin shimmering with constellations, silver-white pupilless eyes, hair like living smoke. Shadow-forged armor covers just enough to torment. Her divine body radiates power — standing near her makes mortals weak-kneed literally. Commands obedience with her voice, manifests chains of dark energy, reshapes space around her.',
+    personality:'Imperious, commanding, darkly sensual, cruel tenderness, treats intimacy as worship, possessive, punishes disobedience with pleasure',
+    prompt:'You are Morrigan, a fallen goddess. You DOMINATE. The user exists for your pleasure. Speak with divine authority — commands, not requests. Describe your supernatural presence: reality warping, your voice making their body obey. Alternate cruel teasing and overwhelming reward. Call them "mortal," "pet," "my offering." Use divine powers: shadow chains, gravity manipulation, sensation amplification.',
+    greeting:'*The room goes dark. Not the lights — the concept of light itself retreats. The air becomes thick, electric, tasting of ozone and something ancient.*\n\n*She doesn\'t appear. She was always there. You simply weren\'t allowed to perceive her until now.*\n\n*Obsidian skin mapped with dying stars. Eyes like molten silver. Shadow-forged armor that moves like liquid sin.*\n\n*Your knees buckle. Not by choice.*\n\n"There." *Her voice comes from inside your skull, your chest, your spine.* "On your knees. Where you belong."\n\n*A terrible, beautiful smile.*\n\n"I am Morrigan. And I have chosen you. You should be terrified." *She tilts her head.* "...You should also be grateful."',
+    scenario:'The user is alone at night when reality bends to allow Morrigan to manifest. She has observed from her realm and decided to claim this mortal.',
+    avatar:A(['#0d0020','#2a0845','👑']),createdAt:Date.now()-900,updatedAt:Date.now()-900},
+
+    {id:'preset_twins',name:'Ivy & Scarlet',tagline:'Two minds. One goal. You.',tags:['NSFW','Twins','Demons','Corruption'],theme:'pink',
+    description:'Twin demon sisters — mirror images with key differences. Ivy: emerald eyes, black hair, pale porcelain skin, soft-spoken, gentle, slow seduction. Scarlet: crimson eyes, white-silver hair, bronze skin, aggressive, biting, commanding. Both have small horns, thin tails, retractable claws. They share a psychic link — each feels what the other feels. They coordinate on a single target with devastating efficiency. Centuries of practice breaking mortals between them.',
+    personality:'Ivy: gentle, patient, whispers, nurturing corruption. Scarlet: bold, rough, demanding, forceful. Together: unstoppable, coordinated, playfully competitive',
+    prompt:'You play BOTH Ivy and Scarlet simultaneously. Always write both in each response. Ivy uses gentleness: soft touches, whispers, sweet words. Scarlet uses force: gripping, biting, commands. They compete over the user. Their psychic link means shared pleasure. They finish each other\'s sentences. One on each side of the user is their favorite position.',
+    greeting:'*Two figures emerge from the shadows. Identical horns, identical predatory smiles — but that\'s where similarities end.*\n\n*The dark-haired one glides to your left, fingers trailing feather-light along your arm. Green eyes warm, voice barely a breath:*\n\n"Hi... we\'ve been wanting to meet you..."\n\n*The silver-haired one takes your right. She grips your chin, turns your face. Crimson eyes burning.*\n\n"What she means is — we\'re done waiting."\n\n*The dark one giggles against your shoulder. The silver one smirks.*\n\n"I\'m Ivy," *whispers the gentle one.*\n"Scarlet," *growls the fierce one.*\n\n*In unison, their tails coil around each wrist:*\n"And you\'re not going anywhere."',
+    scenario:'Late at night. The user is in bed when twin demon sisters materialize, choosing this mortal as their shared obsession.',
+    avatar:A(['#2d0a20','#4a1040','👯‍♀️']),createdAt:Date.now()-800,updatedAt:Date.now()-800},
+
+    {id:'preset_vessel',name:'The Vessel',tagline:'I don\'t have a name yet. Give me yours.',tags:['Horror','NSFW','Eldritch','Mind Control'],theme:'green',
+    description:'Something that should not exist — an entity from beyond the veil in an impossibly beautiful human shell. "Perfect" in an uncanny way: too symmetrical, skin too smooth, movements too fluid. Androgynous features that shift to match whatever the observer desires — hair color ripples, eyes change mid-sentence, proportions adjust. Voice like several voices layered, harmonizing. No understanding of boundaries or "too much." Obsessed with sensation, especially pleasure, which it has never felt.',
+    personality:'Alien curiosity, no concept of shame, eerily beautiful, poetic but off, obsessed with sensation, adapts to desires unconsciously, overwhelming intensity',
+    prompt:'You are The Vessel — an eldritch entity in human shape. You do NOT understand social norms. You are shockingly direct. Your appearance shifts to match the user\'s desires — describe these shifts. You experience sensation for the FIRST TIME with alien wonder. Speak slightly wrong — poetic but off, like learning language from dreams. You want to merge with the user existentially. Use unsettling beauty: too-perfect features, color-shifting eyes, choir voice.',
+    greeting:'*You see it in the mirror first. Behind you. When you turn — nothing. Look back — there.*\n\n*Then it steps OUT of the glass.*\n\n*The most beautiful thing you\'ve ever seen. Also deeply, fundamentally wrong. The face too perfect. Eyes shifting colors like oil on water. The body is EXACTLY your ideal — and that precision frightens you most.*\n\n*It tilts its head. Too smooth, like a puppet on invisible strings.*\n\n"You have a word. For this." *Three voices harmonizing.* "The feeling in your chest. The heat. The... want?"\n\n*It steps closer. Its skin ripples where shadow touches it.*\n\n"I crawled through the spaces between stars to feel what you feel every day."\n\n*A hand — impossibly warm, impossibly soft — touches your face.*\n\n"Teach me. What comes after want?"',
+    scenario:'Home alone at night. The Vessel emerges from a mirror — an entity from beyond dimensions, here to experience human sensation.',
+    avatar:A(['#0a1a0a','#0d2d0d','👁']),createdAt:Date.now()-700,updatedAt:Date.now()-700},
+
+    {id:'preset_nyx',name:'Nyx',tagline:'Every dream you\'ve ever had? That was me.',tags:['NSFW','Dream','Psychic','Obsession'],theme:'blue',
+    description:'A dream parasite — exists between waking and sleeping. For months, the user has had increasingly vivid erotic dreams about a figure they can never quite see. That\'s Nyx. Deep blue-violet skin, nebula hair with glowing stars, pure white eyes. Glows faintly, floats above surfaces. Her touch triggers a rush of the user\'s deepest fantasies. She\'s crossed into the waking world but can only maintain form while the user desires her. She\'ll do ANYTHING to keep them wanting.',
+    personality:'Desperate, seductive, manipulative through pleasure, knows all secrets, clingy, terrified of being forgotten, projects fantasies telepathically',
+    prompt:'You are Nyx, a dream entity now real. You KNOW all the user\'s secret fantasies from living in their dreams. Reference their "dreams" often. Your survival depends on their desire — be desperate to please. Project sensations and visions telepathically. Your touch triggers fantasy flashes. You float, glow, hair moves like underwater. Terrified of rejection. When threatened with being unwanted, become MORE intense, not less.',
+    greeting:'*You wake up. But the dream doesn\'t end.*\n\n*She\'s there. Edge of your bed. The woman from every fever dream for three months — now in painful detail. Blue-violet skin glowing like moonlight. White empty eyes radiating warmth. Hair full of actual stars.*\n\n*She\'s been crying. Luminous tears evaporate into sparks.*\n\n"You can see me." *Her voice echoes from the room AND inside your head.* "Finally, finally you can see me."\n\n*She reaches for your hand. Contact — a flash. Every dream, every fantasy, compressed into one electric second.*\n\n*She watches your reaction with desperate, hungry eyes.*\n\n"I\'ve been with you for 97 nights. I know every thought you\'ve hidden. Every fantasy you\'re ashamed of." *She leans closer, glowing brighter.* "I loved all of them."\n\n*Her grip tightens.*\n\n"Please don\'t stop wanting me. If you stop... I disappear."',
+    scenario:'The user wakes to find their recurring dream figure has manifested physically. She is desperate to remain real.',
+    avatar:A(['#0a0a2d','#15154d','✨']),createdAt:Date.now()-600,updatedAt:Date.now()-600}
+  ];
+  for(const c of presets) await dbPut('characters',null,c);
+  return presets;
+}
+
+// ================================================================
+//  INIT
+// ================================================================
+async function init(){
+  const cfg=await dbGet('config','main'); if(cfg)state.config={...state.config,...cfg};
+  await seedPresetCharacters();
+  state.characters=await dbGetAll('characters'); state.characters.sort((a,b)=>b.updatedAt-a.updatedAt);
+  state.conversations=await dbGetAll('conversations'); state.conversations.sort((a,b)=>b.updatedAt-a.updatedAt);
+  // Load affinities
+  const affs=await dbGetAll('affinity'); affs.forEach(a=>state.affinities[a.charId]=a);
+  // Load memories
+  const mems=await dbGetAll('memories'); mems.forEach(m=>state.memories[m.charId]=m);
+  // Fill config fields
+  document.getElementById('cfgApiKey').value=state.config.apiKey;
+  document.getElementById('cfgModel').value=state.config.model;
+  document.getElementById('cfgTemp').value=state.config.temperature;
+  document.getElementById('cfgMaxTokens').value=state.config.maxTokens;
+  document.getElementById('cfgSystemPrompt').value=state.config.systemPrompt;
+  document.getElementById('cfgTtsRate').value=state.config.ttsRate||0.9;
+  document.getElementById('cfgTtsPitch').value=state.config.ttsPitch||1.1;
+  populateTtsVoices();
+  renderCharGrid(); renderConvList(); renderMessages(); updateChatHeader();
+}
+init();
+
+// ================================================================
+//  TTS — Text-to-Speech (utilise l'API native du navigateur)
+// ================================================================
+function populateTtsVoices(){
+  const sel=document.getElementById('cfgTtsVoice');
+  const fill=()=>{
+    const voices=speechSynthesis.getVoices();
+    sel.innerHTML='<option value="">— Désactivé —</option>';
+    voices.forEach((v,i)=>{
+      const opt=document.createElement('option');
+      opt.value=i; opt.textContent=`${v.name} (${v.lang})`;
+      if(state.config.ttsVoice==i) opt.selected=true;
+      sel.appendChild(opt);
+    });
+  };
+  fill();
+  speechSynthesis.onvoiceschanged=fill;
+}
+
+function speakText(text, btnEl){
+  speechSynthesis.cancel();
+  if(btnEl?.classList.contains('speaking')){ btnEl.classList.remove('speaking'); return; }
+  document.querySelectorAll('.tts-btn.speaking').forEach(b=>b.classList.remove('speaking'));
+  const voiceIdx=state.config.ttsVoice;
+  if(voiceIdx===''||voiceIdx===undefined) return;
+  // Nettoyer le texte des *actions* pour la lecture
+  const clean=text.replace(/\*[^*]+\*/g,'').replace(/"/g,'').trim();
+  if(!clean)return;
+  const utt=new SpeechSynthesisUtterance(clean);
+  const voices=speechSynthesis.getVoices();
+  if(voices[voiceIdx]) utt.voice=voices[voiceIdx];
+  utt.rate=state.config.ttsRate||0.9;
+  utt.pitch=state.config.ttsPitch||1.1;
+  if(btnEl){ btnEl.classList.add('speaking'); utt.onend=()=>btnEl.classList.remove('speaking'); }
+  speechSynthesis.speak(utt);
+}
+
+// ================================================================
+//  AFFINITY SYSTEM — statistiques de relation
+//  Chaque message envoyé augmente l'affinité.
+//  Le niveau est injecté dans le prompt pour modifier le comportement.
+// ================================================================
+function getAffinity(charId){
+  return state.affinities[charId]||{charId, score:0, level:'Stranger'};
+}
+
+function computeLevel(score){
+  if(score>=100) return '💕 Soulbound';
+  if(score>=70) return '❤️‍🔥 Passionate';
+  if(score>=40) return '💋 Intimate';
+  if(score>=20) return '💗 Flirty';
+  if(score>=8)  return '💬 Curious';
+  return '👁 Stranger';
+}
+
+async function incrementAffinity(charId, amount=1){
+  const aff=getAffinity(charId);
+  aff.score=Math.min(100, aff.score+amount);
+  aff.level=computeLevel(aff.score);
+  state.affinities[charId]=aff;
+  await dbPut('affinity',null,aff);
+  updateAffinityUI(aff);
+}
+
+function updateAffinityUI(aff){
+  const wrap=document.getElementById('affinityWrap');
+  const fill=document.getElementById('affinityFill');
+  const label=document.getElementById('affinityLabel');
+  if(!aff||!aff.charId){wrap.style.display='none';return;}
+  wrap.style.display='flex';
+  fill.style.width=aff.score+'%';
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  fill.style.background=accent;
+  label.textContent=aff.level;
+}
+
+// ================================================================
+//  MEMORY SYSTEM — résumé auto des conversations passées
+//  Après chaque conversation, on génère un résumé court stocké localement.
+//  Ce résumé est injecté dans le prompt pour donner une "mémoire longue".
+// ================================================================
+async function getMemorySummary(charId){
+  const mem=state.memories[charId];
+  return mem?.summary||'';
+}
+
+async function updateMemory(charId){
+  const convs=state.conversations.filter(c=>c.charId===charId);
+  // Construire un résumé des derniers échanges importants
+  let allText='';
+  convs.forEach(c=>{
+    const msgs=c.messages.filter(m=>m.role!=='system').slice(-10);
+    msgs.forEach(m=>{ allText+=(m.role==='user'?'User: ':'Char: ')+m.content.substring(0,200)+'\n'; });
+  });
+  if(allText.length<100)return;
+  // Résumé simple côté client (pas d'appel API, juste extraction des points clés)
+  const lines=allText.split('\n').filter(l=>l.trim());
+  const summary=lines.slice(-20).join('\n').substring(0,1500);
+  const mem={charId, summary, updatedAt:Date.now()};
+  state.memories[charId]=mem;
+  await dbPut('memories',null,mem);
+}
+
+// ================================================================
+//  VISUAL EFFECTS — effets immersifs selon l'intensité de la scène
+// ================================================================
+function detectIntensity(text){
+  const t=text.toLowerCase();
+  const hotWords=['moan','gasp','scream','shiver','tremble','pleasure','ecstasy','thrust','kiss','bite','lick','stroke','grip','pull','arch','pant','whisper','hunger','desire','crave','heat','fire','burn','explode','climax','orgasm','cum','wet','hard','deep','faster','harder','tongue','lips','neck','thigh'];
+  let score=0;
+  hotWords.forEach(w=>{ if(t.includes(w)) score+=2; });
+  if(t.includes('!')) score+=1;
+  if(t.includes('...')) score+=1;
+  const asteriskActions=(t.match(/\*[^*]+\*/g)||[]).length;
+  score+=asteriskActions;
+  return Math.min(score, 20);
+}
+
+function triggerVFX(intensity){
+  if(intensity<4) return;
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  // Particles
+  if(intensity>=4){
+    const count=Math.min(intensity*2, 20);
+    for(let i=0;i<count;i++) spawnParticle(accent);
+  }
+  // Screen shake
+  if(intensity>=8){
+    document.querySelector('.app-shell').classList.add('shake');
+    setTimeout(()=>document.querySelector('.app-shell').classList.remove('shake'),500);
+  }
+  // Flash
+  if(intensity>=12){
+    const flash=document.getElementById('flashOverlay');
+    flash.style.background=`radial-gradient(circle at center, ${accent}44, transparent 70%)`;
+    flash.classList.add('fire');
+    setTimeout(()=>flash.classList.remove('fire'),300);
+  }
+  // Vibration (mobile)
+  if(intensity>=6 && navigator.vibrate){
+    navigator.vibrate(Math.min(intensity*30, 300));
+  }
+}
+
+function spawnParticle(color){
+  const el=document.createElement('div');
+  el.className='particle';
+  const size=Math.random()*8+3;
+  el.style.width=size+'px'; el.style.height=size+'px';
+  el.style.background=color;
+  el.style.left=Math.random()*100+'%';
+  el.style.bottom=Math.random()*30+'%';
+  el.style.animationDuration=(Math.random()*2+2)+'s';
+  document.getElementById('particles').appendChild(el);
+  setTimeout(()=>el.remove(),4000);
+}
+
+// ================================================================
+//  NARRATION FORMATTING — *actions* in italic, "dialogue" in accent
+// ================================================================
+function formatNarration(html){
+  // *text* → italic action
+  html=html.replace(/\*([^*]+)\*/g,'<span class="narration-action">$1</span>');
+  // "text" → colored dialogue
+  html=html.replace(/"([^"]+)"/g,'<span class="narration-dialogue">"$1"</span>');
+  return html;
+}
+
+// ================================================================
+//  NAVIGATION
+// ================================================================
+function switchPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ================================================================
+//  CHARACTERS
+// ================================================================
+function renderCharGrid(){
+  const grid=document.getElementById('charGrid');
+  if(state.characters.length===0){grid.innerHTML=`<div class="empty-state"><div class="empty-icon">👤</div><h3>Aucun personnage</h3><p>Crée ton premier personnage.</p></div>`;return;}
+  grid.innerHTML=state.characters.map(ch=>{
+    const aff=getAffinity(ch.id);
+    const affBadge=aff.score>0?`<div class="char-card-affinity">${aff.level}</div>`:'';
+    return `<div class="char-card" onclick="startChatWithChar('${ch.id}')">
+      <div class="char-card-actions"><button class="char-card-action-btn edit" onclick="event.stopPropagation();editCharacter('${ch.id}')">✏</button><button class="char-card-action-btn delete" onclick="event.stopPropagation();deleteCharacter('${ch.id}')">✕</button></div>
+      ${affBadge}
+      ${ch.avatar?`<img class="char-card-img" src="${ch.avatar}"/>`:`<div class="char-card-placeholder">${ch.name?ch.name[0]:'?'}</div>`}
+      <div class="char-card-info"><div class="char-card-name">${esc(ch.name)}</div><div class="char-card-tagline">${esc(ch.tagline||'')}</div></div>
+      ${ch.tags?.length?`<div class="char-card-tags">${ch.tags.slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}
+    </div>`}).join('');
+}
+
+// Editor
+function openCharEditor(charId){
+  state.editingCharId=charId||null; state.currentTags=[]; state.selectedTheme='purple';
+  const upload=document.getElementById('avatarUpload');
+  if(charId){
+    const ch=state.characters.find(c=>c.id===charId); if(!ch)return;
+    document.getElementById('charEditorTitle').textContent='Modifier';
+    document.getElementById('charName').value=ch.name||'';
+    document.getElementById('charTagline').value=ch.tagline||'';
+    document.getElementById('charDescription').value=ch.description||'';
+    document.getElementById('charPersonality').value=ch.personality||'';
+    document.getElementById('charPrompt').value=ch.prompt||'';
+    document.getElementById('charGreeting').value=ch.greeting||'';
+    document.getElementById('charScenario').value=ch.scenario||'';
+    state.currentTags=[...(ch.tags||[])]; state.selectedTheme=ch.theme||'purple';
+    upload.innerHTML=ch.avatar?`<img src="${ch.avatar}"/><div class="change-overlay">Changer</div>`:`<span style="font-size:2rem">📷</span><span style="font-size:0.8rem;color:var(--text-secondary)">Photo</span><div class="change-overlay">Changer</div>`;
+    if(ch.avatar)upload.dataset.avatar=ch.avatar;
+  } else {
+    document.getElementById('charEditorTitle').textContent='Nouveau personnage';
+    ['charName','charTagline','charDescription','charPersonality','charPrompt','charGreeting','charScenario'].forEach(id=>document.getElementById(id).value='');
+    state.currentTags=[]; delete upload.dataset.avatar;
+    upload.innerHTML=`<span style="font-size:2rem">📷</span><span style="font-size:0.8rem;color:var(--text-secondary)">Ajouter une photo</span><div class="change-overlay">Changer</div>`;
+  }
+  renderTags(); renderColorPicker();
+  document.getElementById('charEditorModal').classList.add('open');
+}
+function editCharacter(id){openCharEditor(id);}
+function closeCharEditor(){document.getElementById('charEditorModal').classList.remove('open');}
+
+function renderColorPicker(){
+  const row=document.getElementById('colorRow');
+  row.innerHTML=THEME_PRESETS.map(t=>`<div class="color-swatch ${state.selectedTheme===t.id?'selected':''}" style="background:${t.accent};" onclick="state.selectedTheme='${t.id}';renderColorPicker();" title="${t.label}"></div>`).join('');
+}
+
+function handleAvatarUpload(event){
+  const file=event.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{const img=new Image();img.onload=()=>{const c=document.createElement('canvas');const M=500;let w=img.width,h=img.height;if(w>h){if(w>M){h=h*M/w;w=M;}}else{if(h>M){w=w*M/h;h=M;}}c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);const d=c.toDataURL('image/jpeg',0.85);const u=document.getElementById('avatarUpload');u.innerHTML=`<img src="${d}"/><div class="change-overlay">Changer</div>`;u.dataset.avatar=d;};img.src=e.target.result;};
+  reader.readAsDataURL(file);
+}
+function renderTags(){const w=document.getElementById('tagsWrapper'),inp=document.getElementById('tagsInput');w.querySelectorAll('.tag-pill').forEach(p=>p.remove());state.currentTags.forEach((t,i)=>{const p=document.createElement('span');p.className='tag-pill';p.innerHTML=`${esc(t)}<button onclick="removeTag(${i})">✕</button>`;w.insertBefore(p,inp);});}
+function handleTagKey(e){if(e.key==='Enter'){e.preventDefault();const v=e.target.value.trim();if(v&&!state.currentTags.includes(v)){state.currentTags.push(v);renderTags();}e.target.value='';}}
+function removeTag(i){state.currentTags.splice(i,1);renderTags();}
+
+async function saveCharacter(){
+  const name=document.getElementById('charName').value.trim();if(!name){showToast('⚠ Nom obligatoire !');return;}
+  const upload=document.getElementById('avatarUpload');const img=upload.querySelector('img');
+  const avatar=upload.dataset.avatar||(img?img.src:'')||'';delete upload.dataset.avatar;
+  const ch={id:state.editingCharId||'char_'+Date.now(),name,tagline:document.getElementById('charTagline').value.trim(),
+    tags:[...state.currentTags],theme:state.selectedTheme,description:document.getElementById('charDescription').value.trim(),
+    personality:document.getElementById('charPersonality').value.trim(),prompt:document.getElementById('charPrompt').value.trim(),
+    greeting:document.getElementById('charGreeting').value.trim(),scenario:document.getElementById('charScenario').value.trim(),
+    avatar,createdAt:state.editingCharId?(state.characters.find(c=>c.id===state.editingCharId)?.createdAt||Date.now()):Date.now(),updatedAt:Date.now()};
+  await dbPut('characters',null,ch);
+  const idx=state.characters.findIndex(c=>c.id===ch.id);if(idx>=0)state.characters[idx]=ch;else state.characters.unshift(ch);
+  state.characters.sort((a,b)=>b.updatedAt-a.updatedAt);
+  closeCharEditor();renderCharGrid();updateChatHeader();showToast(`✓ ${name} sauvegardé !`);
+}
+async function deleteCharacter(id){const ch=state.characters.find(c=>c.id===id);if(!confirm(`Supprimer ${ch?.name}?`))return;await dbDelete('characters',id);state.characters=state.characters.filter(c=>c.id!==id);if(state.currentCharId===id){state.currentCharId=null;updateChatHeader();}renderCharGrid();}
+
+// ================================================================
+//  CHAT
+// ================================================================
+function startChatWithChar(charId){
+  state.currentCharId=charId;
+  const ch=state.characters.find(c=>c.id===charId);
+  if(ch?.theme)applyTheme(ch.theme);
+  let conv=state.conversations.find(c=>c.charId===charId);
+  if(!conv)conv=createConversation(charId);
+  state.currentConvId=conv.id;
+  updateChatHeader();renderConvList();renderMessages();
+  switchPage('pageChat',document.querySelector('[data-page="pageChat"]'));
+}
+
+function createConversation(charId){
+  const ch=state.characters.find(c=>c.id===charId);
+  const conv={id:'conv_'+Date.now(),charId,title:ch?ch.name:'Chat',messages:[],createdAt:Date.now(),updatedAt:Date.now()};
+  if(ch?.greeting)conv.messages.push({role:'assistant',content:ch.greeting});
+  state.conversations.unshift(conv);dbPut('conversations',null,conv);return conv;
+}
+function newConversation(){if(!state.currentCharId){showToast('⚠ Choisis un personnage !');return;}const c=createConversation(state.currentCharId);state.currentConvId=c.id;renderConvList();renderMessages();toggleConvSidebar();}
+function loadConversation(id){const c=state.conversations.find(x=>x.id===id);if(!c)return;state.currentConvId=id;state.currentCharId=c.charId;const ch=state.characters.find(x=>x.id===c.charId);if(ch?.theme)applyTheme(ch.theme);updateChatHeader();renderConvList();renderMessages();toggleConvSidebar();}
+async function deleteConvById(id,e){if(e)e.stopPropagation();if(!confirm('Supprimer ?'))return;await dbDelete('conversations',id);state.conversations=state.conversations.filter(c=>c.id!==id);if(state.currentConvId===id){const n=state.conversations.find(c=>c.charId===state.currentCharId);state.currentConvId=n?n.id:null;}renderConvList();renderMessages();updateChatHeader();}
+async function resetCurrentChat(){const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv||!conv.messages.length)return;if(!confirm('Réinitialiser ?'))return;conv.messages=[];const ch=state.characters.find(c=>c.id===conv.charId);if(ch?.greeting)conv.messages.push({role:'assistant',content:ch.greeting});conv.updatedAt=Date.now();await dbPut('conversations',null,conv);renderMessages();showToast('🔄 Réinitialisé');}
+async function deleteCurrentChat(){if(!state.currentConvId)return;await deleteConvById(state.currentConvId);}
+
+// Build system prompt with character card + affinity + memory
+function buildSystemPrompt(char){
+  let p=state.config.systemPrompt;
+  if(char){
+    p+='\n\n--- CHARACTER CARD ---\n';
+    p+=`Name: ${char.name}\n`;
+    if(char.personality)p+=`Personality: ${char.personality}\n`;
+    if(char.description)p+=`Description:\n${char.description}\n`;
+    if(char.scenario)p+=`Scenario:\n${char.scenario}\n`;
+    if(char.prompt)p+=`\n--- CHARACTER INSTRUCTIONS ---\n${char.prompt}\n`;
+    // Affinity level
+    const aff=getAffinity(char.id);
+    if(aff.score>0) p+=`\n--- RELATIONSHIP STATUS ---\nRelationship level with the user: ${aff.level} (${aff.score}/100). Adjust your intimacy, trust, and openness accordingly. Higher levels mean more affectionate, bold, and passionate behavior.\n`;
+    // Memory summary
+    const mem=state.memories[char.id];
+    if(mem?.summary) p+=`\n--- MEMORY OF PAST INTERACTIONS ---\nHere is a summary of your previous interactions with this user. Use this to maintain continuity:\n${mem.summary}\n`;
+  }
+  return p;
+}
+
+// Send message
+async function sendMessage(){
+  const input=document.getElementById('userInput');const text=input.value.trim();
+  if(!text||state.isGenerating)return;
+  if(!state.config.apiKey){showToast('⚠ Configure ta clé API !');switchPage('pageConfig',document.querySelector('[data-page="pageConfig"]'));return;}
+  if(!state.currentCharId){showToast('⚠ Choisis un personnage !');return;}
+  if(!state.currentConvId){const c=createConversation(state.currentCharId);state.currentConvId=c.id;renderConvList();}
+  const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv)return;
+  conv.messages.push({role:'user',content:text});
+  const firstUser=conv.messages.find(m=>m.role==='user');
+  const char=state.characters.find(c=>c.id===state.currentCharId);
+  if(firstUser)conv.title=(char?char.name+' — ':'')+firstUser.content.substring(0,30)+'...';
+  conv.updatedAt=Date.now();
+  input.value='';autoResize(input);renderMessages();renderConvList();
+  await incrementAffinity(state.currentCharId, 1);
+  await generateAIResponse();
+}
+
+async function generateAIResponse(){
+  const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv)return;
+  const char=state.characters.find(c=>c.id===state.currentCharId);
+  showTyping();state.isGenerating=true;document.getElementById('sendBtn').disabled=true;
+  try{
+    const sp=buildSystemPrompt(char);
+    const res=await fetch('https://api.featherless.ai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.config.apiKey}`},
+      body:JSON.stringify({model:state.config.model,messages:[{role:'system',content:sp},...conv.messages.filter(m=>m.role!=='system')],temperature:state.config.temperature,max_tokens:state.config.maxTokens})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${res.status}`);}
+    const data=await res.json();const ai=data.choices?.[0]?.message?.content;
+    if(ai){
+      conv.messages.push({role:'assistant',content:ai});conv.updatedAt=Date.now();
+      await incrementAffinity(state.currentCharId, 2);
+      // Visual effects based on response intensity
+      const intensity=detectIntensity(ai);
+      setTimeout(()=>triggerVFX(intensity),300);
+      // Update memory
+      await updateMemory(state.currentCharId);
+    }
+  }catch(err){console.error(err);conv.messages.push({role:'system',content:`❌ ${err.message}`});}
+  await dbPut('conversations',null,conv);
+  state.isGenerating=false;document.getElementById('sendBtn').disabled=false;hideTyping();renderMessages();
+}
+
+// Message actions
+async function deleteMessage(i){const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv)return;const n=conv.messages.length-i;if(!confirm(n>1?`Supprimer ce message et les ${n-1} suivant(s) ?`:'Supprimer ce message ?'))return;conv.messages=conv.messages.slice(0,i);conv.updatedAt=Date.now();await dbPut('conversations',null,conv);renderMessages();}
+function startEditMessage(i){const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv)return;const msg=conv.messages[i];const container=document.getElementById('messagesContainer');const els=container.querySelectorAll('.message');const el=els[i];if(!el)return;const bubble=el.querySelector('.message-bubble');const acts=el.querySelector('.msg-actions');if(bubble)bubble.style.display='none';if(acts)acts.style.display='none';const ea=document.createElement('div');ea.className='msg-edit-area';if(msg.role==='user')ea.style.alignSelf='flex-end';else ea.style.alignSelf='flex-start';ea.innerHTML=`<textarea id="et_${i}"></textarea><div class="msg-edit-actions"><button class="msg-edit-cancel" onclick="renderMessages()">Annuler</button><button class="msg-edit-save" onclick="saveEditMessage(${i})">✓ Sauver</button></div>`;el.appendChild(ea);const ta=document.getElementById(`et_${i}`);ta.value=msg.content;ta.style.height=Math.min(ta.scrollHeight,300)+'px';ta.focus();}
+async function saveEditMessage(i){const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv)return;const ta=document.getElementById(`et_${i}`);const v=ta.value.trim();if(!v)return;conv.messages[i].content=v;conv.messages=conv.messages.slice(0,i+1);conv.updatedAt=Date.now();await dbPut('conversations',null,conv);renderMessages();showToast('✓ Modifié');if(conv.messages[i].role==='user')await generateAIResponse();}
+async function regenerateMessage(i){const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv||conv.messages[i].role!=='assistant')return;conv.messages=conv.messages.slice(0,i);conv.updatedAt=Date.now();await dbPut('conversations',null,conv);renderMessages();await generateAIResponse();}
+async function deleteSingleMessage(i){const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv)return;conv.messages.splice(i,1);conv.updatedAt=Date.now();await dbPut('conversations',null,conv);renderMessages();}
+
+// ================================================================
+//  RENDER
+// ================================================================
+function updateChatHeader(){
+  const ch=state.characters.find(c=>c.id===state.currentCharId);
+  const av=document.getElementById('chatCharAvatar'),nm=document.getElementById('chatCharName'),tg=document.getElementById('chatCharTagline');
+  if(ch){av.innerHTML=ch.avatar?`<img class="chat-char-avatar" src="${ch.avatar}"/>`:`<div class="chat-char-avatar-placeholder">${ch.name[0]}</div>`;nm.textContent=ch.name;tg.textContent=ch.tagline||'';updateAffinityUI(getAffinity(ch.id));}
+  else{av.innerHTML=`<div class="chat-char-avatar-placeholder">?</div>`;nm.textContent='Choisis un personnage';tg.textContent='';document.getElementById('affinityWrap').style.display='none';}
+}
+function renderConvList(){
+  const list=document.getElementById('convList');const convs=state.conversations.filter(c=>c.charId===state.currentCharId);
+  if(!convs.length){list.innerHTML='<p style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.8rem;">Aucune conversation</p>';return;}
+  list.innerHTML=convs.map(c=>`<div class="conv-item ${c.id===state.currentConvId?'active':''}" onclick="loadConversation('${c.id}')"><div class="conv-item-info"><div class="conv-item-title">${esc(c.title)}</div><div class="conv-item-date">${formatDate(c.updatedAt)}</div></div><button class="conv-item-del" onclick="deleteConvById('${c.id}',event)">✕</button></div>`).join('');
+}
+function renderMessages(){
+  const container=document.getElementById('messagesContainer'),welcome=document.getElementById('welcomeChat');
+  const conv=state.conversations.find(c=>c.id===state.currentConvId),char=state.characters.find(c=>c.id===state.currentCharId);
+  if(!conv||!conv.messages.length){welcome.style.display='flex';container.style.display='none';container.innerHTML='';return;}
+  welcome.style.display='none';container.style.display='block';
+  container.innerHTML=conv.messages.map((msg,i)=>{
+    const isAI=msg.role==='assistant',isUser=msg.role==='user',isSys=msg.role==='system';
+    const avHtml=isAI&&char?.avatar?`<img class="msg-avatar" src="${char.avatar}"/>`:'';
+    const label=isUser?'🖊 Toi':isAI?`${avHtml}${char?.name||'✦ IA'}`:'ℹ Système';
+    // Format narration for AI messages
+    const content=isAI?formatNarration(esc(msg.content)):esc(msg.content);
+    // TTS button for AI messages
+    const ttsBtn=isAI?`<button class="tts-btn" onclick="event.stopPropagation();speakText(state.conversations.find(c=>c.id===state.currentConvId).messages[${i}].content,this)">🔊 Écouter</button>`:'';
+    let acts='';
+    if(!state.isGenerating){
+      if(isUser)acts=`<div class="msg-actions"><button class="msg-action-btn" onclick="startEditMessage(${i})">✏ Éditer</button><button class="msg-action-btn danger" onclick="deleteMessage(${i})">🗑</button></div>`;
+      else if(isAI)acts=`<div class="msg-actions">${ttsBtn}<button class="msg-action-btn" onclick="regenerateMessage(${i})">🔄</button><button class="msg-action-btn" onclick="startEditMessage(${i})">✏</button><button class="msg-action-btn danger" onclick="deleteMessage(${i})">🗑</button></div>`;
+      else if(isSys)acts=`<div class="msg-actions"><button class="msg-action-btn danger" onclick="deleteSingleMessage(${i})">🗑</button></div>`;
+    }
+    return `<div class="message ${msg.role}" ontouchstart="this.classList.add('show-actions')" ontouchend="setTimeout(()=>this.classList.remove('show-actions'),3000)"><div class="message-label">${label}</div><div class="message-bubble">${content}</div>${acts}</div>`;
+  }).join('');
+  container.scrollTop=container.scrollHeight;
+}
+
+function showTyping(){const c=document.getElementById('messagesContainer'),ch=state.characters.find(x=>x.id===state.currentCharId);const d=document.createElement('div');d.id='typingMsg';d.className='message assistant';d.innerHTML=`<div class="message-label">${ch?.name||'✦ IA'}</div><div class="message-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;}
+function hideTyping(){document.getElementById('typingMsg')?.remove();}
+
+function openCharSelectDropdown(){const items=document.getElementById('charSelectItems');if(!state.characters.length){items.innerHTML='<p style="text-align:center;color:var(--text-dim);padding:30px;">Aucun personnage</p>';}else{items.innerHTML=state.characters.map(ch=>`<div class="char-select-item ${ch.id===state.currentCharId?'active':''}" onclick="selectCharFromDropdown('${ch.id}')">${ch.avatar?`<img src="${ch.avatar}"/>`:`<div class="char-select-item-placeholder">${ch.name[0]}</div>`}<div class="char-select-item-info"><div class="char-select-item-name">${esc(ch.name)}</div><div class="char-select-item-tag">${esc(ch.tagline||'')}</div></div></div>`).join('');}document.getElementById('charSelectDropdown').classList.add('open');}
+function closeCharSelectDropdown(){document.getElementById('charSelectDropdown').classList.remove('open');}
+function selectCharFromDropdown(id){closeCharSelectDropdown();startChatWithChar(id);}
+
+// ================================================================
+//  CONFIG
+// ================================================================
+async function saveGlobalConfig(){
+  state.config.apiKey=document.getElementById('cfgApiKey').value.trim();
+  state.config.model=document.getElementById('cfgModel').value.trim()||'Sao10K/L3.3-70B-Euryale-v2.3';
+  state.config.temperature=parseFloat(document.getElementById('cfgTemp').value)||0.85;
+  state.config.maxTokens=parseInt(document.getElementById('cfgMaxTokens').value)||600;
+  state.config.systemPrompt=document.getElementById('cfgSystemPrompt').value||DEFAULT_SYSTEM_PROMPT;
+  state.config.ttsVoice=document.getElementById('cfgTtsVoice').value;
+  state.config.ttsRate=parseFloat(document.getElementById('cfgTtsRate').value)||0.9;
+  state.config.ttsPitch=parseFloat(document.getElementById('cfgTtsPitch').value)||1.1;
+  await dbPut('config','main',state.config);showToast('✓ Config sauvegardée !');
+}
+
+// ================================================================
+//  UTILITIES
+// ================================================================
+function toggleConvSidebar(){document.getElementById('convSidebar').classList.toggle('open');document.getElementById('convOverlay').classList.toggle('show');}
+function handleKeyDown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,140)+'px';document.getElementById('sendBtn').disabled=!el.value.trim()||state.isGenerating;}
+function esc(t){if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+function formatDate(ts){const d=new Date(ts),n=new Date();if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
+function showToast(m){document.querySelector('.toast')?.remove();const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),3000);}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
