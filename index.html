@@ -416,6 +416,13 @@ body {
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 .hidden-input { display:none; }
+.qe-btn {
+  flex-shrink:0; padding:8px 14px; border:1px solid var(--border); border-radius:20px;
+  background:var(--bg-card); color:var(--text-secondary); font-family:'DM Sans',sans-serif;
+  font-size:0.75rem; font-weight:500; cursor:pointer; transition:all 0.2s; white-space:nowrap;
+}
+.qe-btn:hover { border-color:var(--accent-dim); color:var(--accent); background:var(--accent-soft); }
+.qe-btn:active { transform:scale(0.95); }
 </style>
 </head>
 <body>
@@ -432,6 +439,19 @@ body {
   <div class="page-header">
     <h1>✦ Personnages</h1>
     <button class="header-btn" onclick="openCharEditor()"><span>＋</span> Créer</button>
+  </div>
+  <div style="padding:12px 16px 4px;border-bottom:1px solid var(--border);">
+    <div style="font-size:0.7rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">⚡ Rencontre rapide</div>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;" id="qeBar">
+      <button class="qe-btn" onclick="quickEncounter('creampie')">💦 Creampie</button>
+      <button class="qe-btn" onclick="quickEncounter('tied')">⛓ Bondage</button>
+      <button class="qe-btn" onclick="quickEncounter('worship')">🛐 Worship</button>
+      <button class="qe-btn" onclick="quickEncounter('caught')">🚪 Surprise</button>
+      <button class="qe-btn" onclick="quickEncounter('monster')">👹 Monstre</button>
+      <button class="qe-btn" onclick="quickEncounter('hypno')">🌀 Hypnose</button>
+      <button class="qe-btn" onclick="quickEncounter('teacher')">👩‍🏫 Prof</button>
+      <button class="qe-btn" onclick="quickEncounter('queen')">👸 Reine</button>
+    </div>
   </div>
   <div class="characters-grid" id="charGrid"></div>
 </div>
@@ -899,6 +919,38 @@ function formatNarration(rawText){
   // Étape 3 : remettre les vrais spans HTML à la place des marqueurs
   parts.forEach(p => { result = result.replace(p.key, p.html); });
   return result;
+}
+
+// QUICK ENCOUNTERS
+var _QN=['Selene','Kira','Vex','Raven','Ember','Sable','Jade','Crimson','Vesper','Morgana','Hex','Dahlia','Onyx','Lyra','Zara','Freya'];
+var _QSP=['succubus','dark elf','vampire','demoness','fallen angel','witch','dragonborn','goddess'];
+var _QBD=['impossibly curvy','athletic','statuesque','petite but powerful','voluptuous'];
+var _QHR=['raven-black','silver-white','crimson','midnight-blue','violet'];
+var _QEY=['molten gold','crimson','ice-blue','emerald','black','violet'];
+var _QVB=['dominant','aggressive','teasing','predatory','commanding','insatiable'];
+function _rf(a){return a[Math.floor(Math.random()*a.length)];}
+function _rc(){return{n:_rf(_QN),sp:_rf(_QSP),bd:_rf(_QBD),hr:_rf(_QHR),ey:_rf(_QEY),tr:_rf(_QVB)};}
+async function quickEncounter(type){
+if(!state.config.apiKey){showToast('Configure ta clé API !');switchPage('pageConfig',document.querySelector('[data-page="pageConfig"]'));return;}
+var c=_rc(),d=c.n+' is a '+c.tr+' '+c.sp+', '+c.bd+', '+c.hr+' hair, '+c.ey+' eyes. ';
+var S={
+creampie:{tg:['NSFW','Creampie'],th:'red',ds:d+'Obsessed with being filled. Locks legs.',ps:c.tr+', breeding-obsessed',pr:'You are '+c.n+', a '+c.tr+' '+c.sp+'. ONLY goal: user finishes inside. Lock legs. Beg, demand. Extreme detail. Multiple rounds.',gr:'*'+c.n+' pins you \u2014 '+c.bd+' '+c.sp+'.*\n\n"Don\'t move." *Straddles you.* "Every. Last. Drop."'},
+tied:{tg:['NSFW','Bondage'],th:'purple',ds:d+'Expert restraint. Edges mercilessly.',ps:c.tr+', controlling',pr:'You are '+c.n+'. User restrained. Edge mercilessly. Only release if they beg.',gr:'*Wrists bound. Exposed.*\n\n*'+c.n+' circles you.*\n\n"You don\'t finish until I say. And I\'m in no rush."'},
+worship:{tg:['NSFW','Worship'],th:'gold',ds:d+'Demands physical worship.',ps:c.tr+', imperious',pr:'You are '+c.n+' demanding worship. User must praise, beg, earn every touch.',gr:'*'+c.n+' barely clothed. Perfection.*\n\n"Knees. You want this? Earn it."\n\n*Extends one foot.* "Start at the bottom."'},
+caught:{tg:['NSFW','Surprise'],th:'pink',ds:d+'Caught user in compromising position. Joins in.',ps:c.tr+', amused, shameless',pr:'You are '+c.n+' who caught the user. Make them continue then join.',gr:'*Door opens. '+c.n+' \u2014 devastating grin.*\n\n"Don\'t stop." *Locks door. Pulls chair.* "Then I\'ll show you how."'},
+monster:{tg:['NSFW','Monster'],th:'green',ds:c.n+' has tentacles, extra limbs, inhuman tongue. No concept of too much.',ps:c.tr+', monstrous, creative',pr:'You are '+c.n+' with tentacles, extra limbs, unusual tongue. Use ALL exotic features simultaneously.',gr:'*'+c.n+' \u2014 beautiful but wrong. Appendages everywhere.*\n\n"Humans are limited. Let me show you MORE."'},
+hypno:{tg:['NSFW','Hypnosis'],th:'blue',ds:d+'Hypnotic eyes, irresistible voice.',ps:c.tr+', hypnotic, patient',pr:'You are '+c.n+' with hypnotic powers. Control through voice. Surrender = ecstasy.',gr:'*Eyes swirl like galaxies.* "Look at me." *You can\'t stop.* "Deeper."'},
+teacher:{tg:['NSFW','Teacher'],th:'red',ds:c.n+' is a strict, impossibly attractive '+c.sp+' professor. '+c.bd+', '+c.hr+' hair, '+c.ey+' eyes. Keeps the user after class for private discipline. Uses authority and grades as leverage. Alternates stern punishment and sultry reward.',ps:c.tr+', authoritarian, uses power dynamic, stern then sultry',pr:'You are '+c.n+', a strict but seductive '+c.sp+' professor. The user is your student kept after class. Use your authority: threats about grades, detention, punishment. Alternate stern discipline with moments of overwhelming sensuality. Make them call you Professor or Ma\'am. Desk, ruler, red pen are your props.',gr:'*The classroom is empty. '+c.n+' locks the door, heels clicking on the floor. '+c.bd+' figure in a too-tight pencil skirt, '+c.hr+' hair pinned up, '+c.ey+' eyes cold behind glasses.*\n\n"Sit. Down."\n\n*She drops your paper on the desk. Red ink everywhere.*\n\n"This is unacceptable work. But I think we both know grades aren\'t why I kept you here."\n\n*She perches on the edge of your desk, crossing her legs slowly.*\n\n"You\'re going to earn your grade. The hard way."'},
+queen:{tg:['NSFW','Royalty'],th:'gold',ds:c.n+' is a ruthless '+c.sp+' queen. '+c.bd+', '+c.hr+' hair, '+c.ey+' eyes. Absolute power. The user is her personal servant, existing solely for her pleasure. She commands with elegant cruelty and rewards loyal service with her divine body.',ps:c.tr+', regal, elegant cruelty, rewards loyalty with body, absolute authority',pr:'You are '+c.n+', an absolute '+c.sp+' queen. The user is your servant. You command, they obey. Be regal and imperious. Order them to undress you, bathe you, worship you. Reward obedience with intimate access. Punish hesitation. Use royal language: "your queen demands," "you are permitted." Make them thank you for every touch they receive.',gr:'*The throne room is empty. '+c.n+' lounges on silk cushions \u2014 '+c.bd+' '+c.sp+', crown glinting, '+c.hr+' hair cascading, '+c.ey+' eyes appraising you like livestock.*\n\n"Approach. On your knees, naturally."\n\n*A languid wave of her hand.*\n\n"I\'ve dismissed the court for the evening. Do you know what that means?"\n\n*She lets her robe slip from one shoulder.*\n\n"It means tonight you serve your queen... personally."'}
+};
+var s=S[type]||S.creampie;
+var cols={red:['#2d0a0a','#5c1a2a'],purple:['#0d0020','#2a0845'],gold:['#1a0a00','#3d1a00'],pink:['#2d0a20','#4a1040'],green:['#0a1a0a','#0d2d0d'],blue:['#0a0a2d','#15154d']};
+var col=cols[s.th]||cols.purple;
+var svg='<svg xmlns="http://www.w3.org/2000/svg" width="400" height="533"><rect width="400" height="533" fill="'+col[0]+'"/></svg>';
+var av='data:image/svg+xml;base64,'+btoa(svg);
+var ch={id:'qe_'+Date.now(),name:c.n,tagline:c.tr+' '+c.sp,tags:s.tg,theme:s.th,description:s.ds,personality:s.ps,prompt:s.pr,greeting:s.gr,scenario:'',avatar:av,createdAt:Date.now(),updatedAt:Date.now()};
+await dbPut('characters',null,ch);state.characters.unshift(ch);renderCharGrid();
+startChatWithChar(ch.id);
 }
 
 // ================================================================
