@@ -614,7 +614,7 @@ let state = {
 async function seedPresetCharacters(){
   const existing=await dbGetAll('characters');
   if(existing.length>0)return;
-  const A=n=>`data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="533" viewBox="0 0 400 533"><defs><linearGradient id="b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:${n[0]}"/><stop offset="100%" style="stop-color:${n[1]}"/></linearGradient></defs><rect width="400" height="533" fill="url(#b)"/><text x="200" y="280" text-anchor="middle" font-size="120">${n[2]}</text></svg>`)}`;
+  const A=n=>{const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="533" viewBox="0 0 400 533"><defs><linearGradient id="b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:${n[0]}"/><stop offset="100%" style="stop-color:${n[1]}"/></linearGradient></defs><rect width="400" height="533" fill="url(#b)"/><text x="200" y="280" text-anchor="middle" font-size="120">${n[2]}</text></svg>`;return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;};
   const presets=[
     {id:'preset_zahira',name:'Zahira',tagline:'Unlimited wishes. Unlimited desires.',tags:['Fantasy','NSFW','Romance','Magic'],theme:'gold',
     description:'Zahira is a djinn of extraordinary beauty — luminous golden skin, amethyst hair, molten gold eyes. Unlike lesser djinn, she has NO wish limit. Freed millennia ago, she grants wishes for her own amusement and because mortal desire intoxicates her. Voluptuous, draped in translucent silks and golden chains. She feeds on the emotional energy of fulfilled fantasies.',
@@ -697,7 +697,7 @@ async function seedPresetCharacters(){
 // ================================================================
 async function init(){
   const cfg=await dbGet('config','main'); if(cfg)state.config={...state.config,...cfg};
-  await seedPresetCharacters();
+  await seedPresetCharacters().catch(e=>console.error('Seed error:',e));
   state.characters=await dbGetAll('characters'); state.characters.sort((a,b)=>b.updatedAt-a.updatedAt);
   state.conversations=await dbGetAll('conversations'); state.conversations.sort((a,b)=>b.updatedAt-a.updatedAt);
   // Load affinities
