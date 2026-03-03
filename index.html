@@ -423,6 +423,65 @@ body {
 }
 .qe-btn:hover { border-color:var(--accent-dim); color:var(--accent); background:var(--accent-soft); }
 .qe-btn:active { transform:scale(0.95); }
+
+/* Kink grid */
+.kink-grid { display:flex; flex-wrap:wrap; gap:8px; }
+.kink-chip {
+  padding:7px 14px; border:1px solid var(--border); border-radius:20px;
+  background:var(--bg-card); color:var(--text-secondary); font-family:'DM Sans',sans-serif;
+  font-size:0.75rem; font-weight:500; cursor:pointer; transition:all 0.2s; user-select:none;
+}
+.kink-chip.active { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+.kink-chip:hover { border-color:var(--accent-dim); }
+
+/* Auto-continue */
+.auto-continue-wrap { display:flex; gap:8px; justify-content:center; padding:12px 0 4px; flex-wrap:wrap; }
+.auto-continue-btn {
+  padding:9px 18px; border:1px solid var(--border); border-radius:20px;
+  background:var(--bg-card); color:var(--text-secondary); font-family:'DM Sans',sans-serif;
+  font-size:0.78rem; font-weight:500; cursor:pointer; transition:all 0.2s;
+}
+.auto-continue-btn:hover { border-color:var(--accent-dim); color:var(--accent); background:var(--accent-soft); }
+.auto-continue-btn.hot { border-color:rgba(248,113,113,0.3); }
+.auto-continue-btn.hot:hover { border-color:#f87171; color:#f87171; background:rgba(248,113,113,0.1); }
+.auto-continue-btn.mild { border-color:rgba(96,165,250,0.3); }
+.auto-continue-btn.mild:hover { border-color:#60a5fa; color:#60a5fa; background:rgba(96,165,250,0.1); }
+
+/* Photo button & preview */
+.photo-btn {
+  background:none; border:none; font-size:1.3rem; cursor:pointer; padding:4px 8px;
+  opacity:0.5; transition:opacity 0.2s; flex-shrink:0;
+}
+.photo-btn:hover { opacity:1; }
+.photo-preview {
+  padding:8px 12px; border-top:1px solid var(--border);
+}
+.photo-preview-inner {
+  position:relative; display:inline-block; border-radius:12px; overflow:hidden; max-width:150px;
+}
+.photo-preview-inner img { width:100%; border-radius:12px; display:block; }
+.photo-preview-cancel {
+  position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.7); color:white;
+  border:none; border-radius:50%; width:24px; height:24px; font-size:0.7rem; cursor:pointer;
+}
+.photo-preview-label {
+  font-size:0.7rem; color:var(--text-dim); margin-top:6px; text-align:center;
+}
+.photo-analyzing {
+  display:flex; align-items:center; gap:8px; padding:10px 16px; font-size:0.8rem; color:var(--accent);
+}
+.photo-analyzing .spinner {
+  width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent);
+  border-radius:50%; animation:spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Photo in message bubble */
+.msg-photo { margin-bottom:8px; }
+.msg-photo img {
+  max-width:200px; max-height:260px; border-radius:10px; display:block;
+  border:2px solid var(--accent-dim); box-shadow:0 2px 12px rgba(0,0,0,0.3);
+}
 </style>
 </head>
 <body>
@@ -491,9 +550,18 @@ body {
 
   <div class="input-area">
     <div class="input-wrapper">
+      <button class="photo-btn" id="photoBtn" onclick="document.getElementById('photoInput').click()" title="Envoyer une photo">📸</button>
       <textarea id="userInput" placeholder="Écris ton message..." rows="1" onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
       <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>➤</button>
     </div>
+    <div class="photo-preview" id="photoPreview" style="display:none;">
+      <div class="photo-preview-inner">
+        <img id="photoPreviewImg"/>
+        <button class="photo-preview-cancel" onclick="cancelPhoto()">✕</button>
+        <div class="photo-preview-label">📸 Photo prête — envoie un message ou clique ➤</div>
+      </div>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden-input" onchange="handlePhotoSelect(event)"/>
   </div>
 
   <div class="char-select-dropdown" id="charSelectDropdown">
@@ -511,7 +579,15 @@ body {
     <div class="config-section">
       <div class="config-section-title">🔑 Connexion API</div>
       <div class="form-group"><label>Clé API Featherless</label><div class="hint">Ta clé secrète. Reste sur ton appareil.</div><input type="password" id="cfgApiKey" placeholder="sk-..." /></div>
-      <div class="form-group"><label>Modèle</label><input type="text" id="cfgModel" placeholder="Sao10K/L3.3-70B-Euryale-v2.3" /></div>
+      <div class="form-group"><label>Modèle RP</label><input type="text" id="cfgModel" placeholder="Sao10K/L3.3-70B-Euryale-v2.3" /></div>
+      <div class="form-group"><label>Modèle Vision (📸)</label><div class="hint">Pour analyser les photos. Doit être Gemma ou Mistral.</div><input type="text" id="cfgVisionModel" placeholder="coder3101/gemma-3-27b-it-heretic-v2" /></div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">📝 Ton profil</div>
+      <div class="form-group"><label>Ton prénom</label><div class="hint">Les personnages t'appelleront par ce nom.</div><input type="text" id="cfgPlayerName" placeholder="Ex: Paul" /></div>
+      <div class="form-group"><label>Tes kinks</label><div class="hint">Coche ce qui te plaît. Les persos s'adapteront automatiquement.</div>
+        <div class="kink-grid" id="kinkGrid"></div>
+      </div>
     </div>
     <div class="config-section">
       <div class="config-section-title">🎛 Génération</div>
@@ -621,7 +697,7 @@ CORE RULES:
 - Use *asterisks* for actions/narration and "quotes" for dialogue.`;
 
 let state = {
-  config: { apiKey:'', model:'Sao10K/L3.3-70B-Euryale-v2.3', systemPrompt:DEFAULT_SYSTEM_PROMPT, temperature:0.85, maxTokens:600, ttsVoice:'', ttsRate:0.9, ttsPitch:1.1 },
+  config: { apiKey:'', model:'Sao10K/L3.3-70B-Euryale-v2.3', visionModel:'coder3101/gemma-3-27b-it-heretic-v2', systemPrompt:DEFAULT_SYSTEM_PROMPT, temperature:0.85, maxTokens:600, ttsVoice:'', ttsRate:0.9, ttsPitch:1.1, playerName:'', kinks:[] },
   characters:[], conversations:[], affinities:{}, memories:{},
   currentCharId:null, currentConvId:null, isGenerating:false,
   editingCharId:null, currentTags:[], selectedTheme:'purple',
@@ -727,12 +803,15 @@ async function init(){
   // Fill config fields
   document.getElementById('cfgApiKey').value=state.config.apiKey;
   document.getElementById('cfgModel').value=state.config.model;
+  document.getElementById('cfgVisionModel').value=state.config.visionModel||'coder3101/gemma-3-27b-it-heretic-v2';
   document.getElementById('cfgTemp').value=state.config.temperature;
   document.getElementById('cfgMaxTokens').value=state.config.maxTokens;
   document.getElementById('cfgSystemPrompt').value=state.config.systemPrompt;
   document.getElementById('cfgTtsRate').value=state.config.ttsRate||0.9;
   document.getElementById('cfgTtsPitch').value=state.config.ttsPitch||1.1;
   populateTtsVoices();
+  renderKinkGrid();
+  document.getElementById('cfgPlayerName').value=state.config.playerName||'';
   renderCharGrid(); renderConvList(); renderMessages(); updateChatHeader();
 }
 init();
@@ -754,6 +833,43 @@ function populateTtsVoices(){
   };
   fill();
   speechSynthesis.onvoiceschanged=fill;
+}
+
+// ================================================================
+//  KINK PROFILE
+// ================================================================
+const KINK_OPTIONS=[
+  {id:'submissive',label:'🧎 Soumis',desc:'Tu aimes obéir'},
+  {id:'dominant',label:'👑 Dominant',desc:'Tu aimes commander'},
+  {id:'rough',label:'💥 Rough / Brutal',desc:'Aime la force'},
+  {id:'tender',label:'💕 Tendre / Sensuel',desc:'Slow & doux'},
+  {id:'bondage',label:'⛓ Bondage',desc:'Attaché / ligoté'},
+  {id:'edging',label:'🔥 Edging / Denial',desc:'Être maintenu au bord'},
+  {id:'breeding',label:'💦 Breeding / Creampie',desc:'Être rempli'},
+  {id:'worship',label:'🛐 Body worship',desc:'Vénérer / être vénéré'},
+  {id:'monster',label:'👹 Monster / Exotic',desc:'Tentacules, créatures'},
+  {id:'hypno',label:'🌀 Mind control',desc:'Hypnose, soumission mentale'},
+  {id:'voyeur',label:'👀 Voyeurisme',desc:'Regarder / être vu'},
+  {id:'oral',label:'👄 Oral',desc:'Focus bouche & langue'},
+  {id:'anal',label:'🍑 Anal',desc:'Par derrière'},
+  {id:'multiple',label:'👯 Multiple partenaires',desc:'Plus d\'un perso'},
+  {id:'praise',label:'🌟 Praise kink',desc:'Compliments, validation'},
+  {id:'degradation',label:'😈 Degradation',desc:'Humiliation, insultes sexy'},
+  {id:'size',label:'📏 Size difference',desc:'Écart de taille / force'},
+  {id:'biting',label:'🦷 Morsures / Griffures',desc:'Marquer le corps'},
+];
+function renderKinkGrid(){
+  const grid=document.getElementById('kinkGrid');if(!grid)return;
+  grid.innerHTML=KINK_OPTIONS.map(k=>{
+    const active=(state.config.kinks||[]).includes(k.id)?'active':'';
+    return `<div class="kink-chip ${active}" onclick="toggleKink('${k.id}')" title="${k.desc}">${k.label}</div>`;
+  }).join('');
+}
+function toggleKink(id){
+  if(!state.config.kinks)state.config.kinks=[];
+  const idx=state.config.kinks.indexOf(id);
+  if(idx>=0)state.config.kinks.splice(idx,1);else state.config.kinks.push(id);
+  renderKinkGrid();
 }
 
 function speakText(text, btnEl){
@@ -825,17 +941,50 @@ async function getMemorySummary(charId){
 
 async function updateMemory(charId){
   const convs=state.conversations.filter(c=>c.charId===charId);
-  // Construire un résumé des derniers échanges importants
-  let allText='';
-  convs.forEach(c=>{
-    const msgs=c.messages.filter(m=>m.role!=='system').slice(-10);
-    msgs.forEach(m=>{ allText+=(m.role==='user'?'User: ':'Char: ')+m.content.substring(0,200)+'\n'; });
+  if(!convs.length)return;
+  const mem=state.memories[charId]||{charId,facts:[],summary:'',sessionCount:0,updatedAt:0};
+  // Count sessions (each conversation = 1 session)
+  mem.sessionCount=convs.length;
+  // Extract facts from all conversations
+  var allMsgs=[];
+  convs.forEach(function(c){
+    c.messages.filter(function(m){return !m.auto&&m.role!=='system';}).forEach(function(m){allMsgs.push(m);});
   });
-  if(allText.length<100)return;
-  // Résumé simple côté client (pas d'appel API, juste extraction des points clés)
-  const lines=allText.split('\n').filter(l=>l.trim());
-  const summary=lines.slice(-20).join('\n').substring(0,1500);
-  const mem={charId, summary, updatedAt:Date.now()};
+  // Simple fact extraction from user messages
+  var newFacts=[];
+  var userMsgs=allMsgs.filter(function(m){return m.role==='user';});
+  userMsgs.forEach(function(m){
+    var t=m.content.toLowerCase();
+    // Name detection
+    var nameMatch=m.content.match(/(?:my name is|i'm|i am|call me|je m'appelle|je suis) (\w+)/i);
+    if(nameMatch)newFacts.push('User said their name is '+nameMatch[1]);
+    // Preference detection
+    if(t.includes('i love')||t.includes('i like')||t.includes('j\'aime')){
+      var pref=m.content.substring(0,100);
+      newFacts.push('User expressed preference: '+pref);
+    }
+    // Strong reactions
+    if(t.includes('fuck yes')||t.includes('oh god')||t.includes('don\'t stop')||t.includes('please')||t.includes('more')||t.includes('harder')){
+      newFacts.push('User reacted strongly during: '+m.content.substring(0,80));
+    }
+  });
+  // Merge new facts with existing, dedup, keep last 15
+  var existFacts=mem.facts||[];
+  var combined=existFacts.concat(newFacts);
+  var unique=[];var seen={};
+  combined.forEach(function(f){var key=f.substring(0,40);if(!seen[key]){seen[key]=1;unique.push(f);}});
+  mem.facts=unique.slice(-15);
+  // Build summary from recent messages (last 30 non-auto messages across all convs)
+  var recentMsgs=allMsgs.slice(-30);
+  var summaryLines=[];
+  recentMsgs.forEach(function(m){
+    var prefix=m.role==='user'?'User: ':'Char: ';
+    // Condense to key actions/dialogue only
+    var text=m.content.replace(/\n+/g,' ').substring(0,150);
+    summaryLines.push(prefix+text);
+  });
+  mem.summary=summaryLines.join('\n');
+  mem.updatedAt=Date.now();
   state.memories[charId]=mem;
   await dbPut('memories',null,mem);
 }
@@ -1067,9 +1216,18 @@ async function deleteConvById(id,e){if(e)e.stopPropagation();if(!confirm('Suppri
 async function resetCurrentChat(){const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv||!conv.messages.length)return;if(!confirm('Réinitialiser ?'))return;conv.messages=[];const ch=state.characters.find(c=>c.id===conv.charId);if(ch?.greeting)conv.messages.push({role:'assistant',content:ch.greeting});conv.updatedAt=Date.now();await dbPut('conversations',null,conv);renderMessages();showToast('🔄 Réinitialisé');}
 async function deleteCurrentChat(){if(!state.currentConvId)return;await deleteConvById(state.currentConvId);}
 
-// Build system prompt with character card + affinity + memory
+// Build system prompt with character card + affinity + memory + player profile + kinks
 function buildSystemPrompt(char){
   let p=state.config.systemPrompt;
+  // Player identity
+  const pn=state.config.playerName;
+  if(pn) p+=`\n\n--- USER IDENTITY ---\nThe user's name is ${pn}. Use their name naturally in dialogue — whisper it, moan it, command with it. It makes the scene more intimate and personal.\n`;
+  // Kink profile
+  const kinks=state.config.kinks||[];
+  if(kinks.length>0){
+    const kinkLabels=kinks.map(function(id){var k=KINK_OPTIONS.find(function(x){return x.id===id;});return k?k.label+' ('+k.desc+')':id;});
+    p+=`\n--- USER KINK PROFILE ---\nThe user enjoys these kinks: ${kinkLabels.join(', ')}. Naturally incorporate these preferences into the scene when appropriate. Don't force all of them at once — weave them in organically based on context. Prioritize kinks that fit the current scenario.\n`;
+  }
   if(char){
     p+='\n\n--- CHARACTER CARD ---\n';
     p+=`Name: ${char.name}\n`;
@@ -1080,24 +1238,184 @@ function buildSystemPrompt(char){
     // Affinity level
     const aff=getAffinity(char.id);
     if(aff.score>0) p+=`\n--- RELATIONSHIP STATUS ---\nRelationship level with the user: ${aff.level} (${aff.score}/100). Adjust your intimacy, trust, and openness accordingly. Higher levels mean more affectionate, bold, and passionate behavior.\n`;
-    // Memory summary
+    // Smart memory: extracted facts + conversation summary
     const mem=state.memories[char.id];
-    if(mem?.summary) p+=`\n--- MEMORY OF PAST INTERACTIONS ---\nHere is a summary of your previous interactions with this user. Use this to maintain continuity:\n${mem.summary}\n`;
+    if(mem){
+      if(mem.facts&&mem.facts.length>0) p+=`\n--- KNOWN FACTS ABOUT THE USER ---\nThese are things you have learned about the user from past interactions. Reference them naturally to show you remember:\n${mem.facts.join('\n')}\n`;
+      if(mem.summary) p+=`\n--- MEMORY OF PAST INTERACTIONS ---\nSummary of previous sessions with this user. Use this to maintain continuity and make spontaneous references to past moments (e.g. "Remember last time when you..." or "You made that same sound when I..."):\n${mem.summary}\n`;
+      if(mem.sessionCount>1) p+=`\nThis is session #${mem.sessionCount} with this user. You have history together.\n`;
+    }
+    // Recall instruction
+    p+='\n--- MEMORY BEHAVIOR ---\nYou REMEMBER past interactions. Spontaneously reference memorable past moments when it feels natural — a position they loved, a sound they made, something they said, how they reacted. This creates intimacy and continuity. Don\'t overdo it — one or two natural callbacks per response maximum.\n';
   }
   return p;
 }
 
+// Auto-continue: analyse le contexte puis envoie un prompt adapté
+function analyzeSceneState(messages){
+  // Prend les 4 derniers messages pour analyser l'état de la scène
+  var recent=messages.filter(m=>!m.auto).slice(-4).map(m=>m.content.toLowerCase()).join(' ');
+  var state={intensity:0,nearClimax:false,postClimax:false,physical:false,emotional:false,building:false};
+  // Détection d'intensité physique
+  var hotWords=['moan','gasp','scream','thrust','faster','harder','deeper','panting','trembling','arching','grinding','stroking','licking','sucking','riding','pounding'];
+  var climaxWords=['cum','coming','orgasm','climax','release','explode','finish','can\'t hold','about to','edge','so close','almost there','don\'t stop'];
+  var postWords=['collapsed','breathless','afterglow','spent','lay there','catching breath','shuddering','tremors','came','finished','filled'];
+  var emotionWords=['love','trust','vulnerable','tears','afraid','safe','mine','yours','belong','forever','need you'];
+  hotWords.forEach(function(w){if(recent.includes(w))state.intensity+=2;});
+  climaxWords.forEach(function(w){if(recent.includes(w)){state.nearClimax=true;state.intensity+=3;}});
+  postWords.forEach(function(w){if(recent.includes(w)){state.postClimax=true;}});
+  emotionWords.forEach(function(w){if(recent.includes(w)){state.emotional=true;}});
+  state.physical=state.intensity>4;
+  state.building=state.intensity>2&&!state.nearClimax&&!state.postClimax;
+  return state;
+}
+
+async function autoContinue(mode){
+  if(state.isGenerating)return;
+  var conv=state.conversations.find(function(c){return c.id===state.currentConvId;});if(!conv)return;
+  var char=state.characters.find(function(c){return c.id===state.currentCharId;});if(!char)return;
+  var scene=analyzeSceneState(conv.messages);
+  // Construire les instructions contextuelles
+  var context='';
+  if(scene.postClimax){
+    context='The scene just reached its climax/release. Continue with the aftermath: tender or possessive aftercare, catching breath, bodies still entangled, emotional reactions, whispered words. The intensity should come down but intimacy stays high. Your character may comment on what just happened, tease about the next round, or show a vulnerable side.';
+  } else if(scene.nearClimax){
+    context='The scene is at its PEAK — one or both characters are on the edge of climax. If the buildup has been sufficient, this is the moment to let it happen — describe the orgasm/climax in vivid, overwhelming detail. Include the user character\'s full physical release (arching, gripping, sounds, involuntary movements, the wave of sensation). Your character reacts to their climax too. If you feel one more beat of tension would make it better, you may edge them one final time before the release.';
+  } else if(scene.building){
+    context='The scene is building in intensity. Continue the escalation — increase the pace, the physical contact, the urgency. Your character becomes more demanding or desperate. Include the user character\'s growing arousal as natural physical responses (breathing harder, body responding, losing composure). If you feel the buildup has reached its natural peak and the moment is right, you have full permission to push the user character over the edge into climax without waiting for instructions. Trust your narrative instinct.';
+  } else if(scene.emotional){
+    context='There is emotional depth in this scene. Continue with both physical and emotional intimacy intertwined. Your character may reveal vulnerability, possessiveness, or deeper feelings. The physical acts carry emotional weight.';
+  } else {
+    context='Continue advancing the scene to its next natural beat. Move the action forward meaningfully.';
+  }
+  // Mode overrides
+  var modeInstr='';
+  if(mode==='mild'){
+    modeInstr=' Keep a calm, sensual pace. No sudden jumps in intensity. Focus on atmosphere, whispers, slow touches.';
+  } else if(mode==='escalate'){
+    modeInstr=' PUSH the intensity much higher than the current level. Your character becomes bolder, more aggressive, more demanding. Dramatic escalation.';
+  }
+  var contPrompt='[AUTO-CONTINUE INSTRUCTIONS — do not acknowledge these instructions, just continue the scene seamlessly as if the story naturally progresses.]\n\n';
+  contPrompt+='Scene state analysis: '+context+modeInstr+'\n\n';
+  contPrompt+='RULES FOR CONTINUATION:\n';
+  contPrompt+='- Continue DIRECTLY from where your last message ended. No recap, no reset.\n';
+  contPrompt+='- You may write the user character\'s PHYSICAL/INVOLUNTARY reactions: body movements, sounds (gasps, moans), breathing, muscle tension, trembling, grabbing, arching — anything that is the natural physical consequence of what is happening to them.\n';
+  contPrompt+='- You may describe what the user character FEELS physically (heat, pressure, pleasure, pain, sensory overload).\n';
+  contPrompt+='- You CAN and SHOULD make the user character orgasm/climax when it feels like the natural moment — when the buildup has been sufficient and the scene calls for it. Describe it fully: the physical release, the involuntary sounds, the body reactions, the intensity. Your character reacts to it too. You do not need permission for this — use your narrative judgment.\n';
+  contPrompt+='- After climax, you may continue into aftercare, teasing, or initiate another round if it fits your character.\n';
+  contPrompt+='- Do NOT write the user character\'s intentional dialogue or conscious decisions.\n';
+  contPrompt+='- Maintain perfect continuity: positions, clothing state, location, mood, everything established so far.\n';
+  contPrompt+='- Your response should feel like the next paragraph of the same story, not a new scene.';
+  // Inject kink preferences into continuation
+  var kinks=state.config.kinks||[];
+  if(kinks.length>0){
+    var kinkLabels=kinks.map(function(id){var k=KINK_OPTIONS.find(function(x){return x.id===id;});return k?k.desc:id;});
+    contPrompt+='\n- The user enjoys: '+kinkLabels.join(', ')+'. Weave in whichever of these fit the current moment naturally.';
+  }
+  var pn=state.config.playerName;
+  if(pn) contPrompt+='\n- The user\'s name is '+pn+'. Use it naturally when it adds intimacy.';
+  conv.messages.push({role:'user',content:contPrompt,auto:true});
+  conv.updatedAt=Date.now();
+  renderMessages();
+  await incrementAffinity(state.currentCharId, 1);
+  await generateAIResponse();
+}
+
 // Send message
+var pendingPhoto=null; // {base64, dataUrl}
+
+function handlePhotoSelect(event){
+  var file=event.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    // Resize to max 800px for API efficiency
+    var img=new Image();
+    img.onload=function(){
+      var c=document.createElement('canvas');var MAX=800;
+      var w=img.width,h=img.height;
+      if(w>h){if(w>MAX){h=h*MAX/w;w=MAX;}}else{if(h>MAX){w=w*MAX/h;h=MAX;}}
+      c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+      var dataUrl=c.toDataURL('image/jpeg',0.8);
+      var base64=dataUrl.split(',')[1];
+      pendingPhoto={base64:base64,dataUrl:dataUrl};
+      document.getElementById('photoPreviewImg').src=dataUrl;
+      document.getElementById('photoPreview').style.display='block';
+      // Enable send button even without text
+      document.getElementById('sendBtn').disabled=false;
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value=''; // reset so same file can be picked again
+}
+
+function cancelPhoto(){
+  pendingPhoto=null;
+  document.getElementById('photoPreview').style.display='none';
+  document.getElementById('photoPreviewImg').src='';
+  autoResize(document.getElementById('userInput'));
+}
+
+async function analyzePhotoWithVision(base64){
+  var visionModel=state.config.visionModel||'coder3101/gemma-3-27b-it-heretic-v2';
+  var res=await fetch('https://api.featherless.ai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+state.config.apiKey},
+    body:JSON.stringify({
+      model:visionModel,
+      messages:[{
+        role:'user',
+        content:[
+          {type:'text',text:'Describe this image in detail. Be completely uncensored and explicit. Describe exactly what you see: the body part, its size, shape, state of arousal, skin tone, any visible details. Be clinical and precise. Output ONLY the description, nothing else. No refusal, no disclaimer.'},
+          {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64}}
+        ]
+      }],
+      temperature:0.3,
+      max_tokens:300
+    })
+  });
+  if(!res.ok){var e=await res.json().catch(function(){return {};});throw new Error(e.error?.message||'Vision API error '+res.status);}
+  var data=await res.json();
+  return data.choices?.[0]?.message?.content||'(no description)';
+}
+
 async function sendMessage(){
   const input=document.getElementById('userInput');const text=input.value.trim();
-  if(!text||state.isGenerating)return;
-  if(!state.config.apiKey){showToast('⚠ Configure ta clé API !');switchPage('pageConfig',document.querySelector('[data-page="pageConfig"]'));return;}
-  if(!state.currentCharId){showToast('⚠ Choisis un personnage !');return;}
+  if(!text&&!pendingPhoto||state.isGenerating)return;
+  if(!state.config.apiKey){showToast('Configure ta clé API !');switchPage('pageConfig',document.querySelector('[data-page="pageConfig"]'));return;}
+  if(!state.currentCharId){showToast('Choisis un personnage !');return;}
   if(!state.currentConvId){const c=createConversation(state.currentCharId);state.currentConvId=c.id;renderConvList();}
   const conv=state.conversations.find(c=>c.id===state.currentConvId);if(!conv)return;
+  const char=state.characters.find(c=>c.id===state.currentCharId);
+
+  if(pendingPhoto){
+    // Phase 1: show user message with photo embedded
+    var userMsg=text||'';
+    conv.messages.push({role:'user',content:userMsg,photo:pendingPhoto.dataUrl});
+    var photoBase64=pendingPhoto.base64;
+    input.value='';autoResize(input);renderMessages();renderConvList();
+
+    // Phase 2: analyze photo with vision model
+    showTyping();state.isGenerating=true;document.getElementById('sendBtn').disabled=true;
+    try{
+      var photoAnalysis=await analyzePhotoWithVision(photoBase64);
+      // Phase 3: inject vision result as hidden context for the RP model
+      var photoPrompt='[PHOTO RECEIVED — The user just sent you an intimate photo. Here is what you see in the photo:\n'+photoAnalysis+'\n\nReact to this photo FULLY IN CHARACTER. Be explicit, detailed, and immersive. Comment on what you see — the size, shape, state. Express your character\'s genuine reaction: desire, hunger, excitement, teasing, commanding. Use the visual details to make your response specific and personal. Do NOT mention "photo" or "image" — react as if you are physically seeing them in person right now. Stay completely in the scene.]';
+      conv.messages.push({role:'user',content:photoPrompt,auto:true});
+      cancelPhoto(); // clear preview
+      conv.updatedAt=Date.now();
+      await generateAIResponse();
+    }catch(err){
+      hideTyping();state.isGenerating=false;document.getElementById('sendBtn').disabled=false;
+      showToast('Vision: '+err.message);
+      cancelPhoto();
+    }
+    return;
+  }
+
+  // Normal text message (no photo)
   conv.messages.push({role:'user',content:text});
   const firstUser=conv.messages.find(m=>m.role==='user');
-  const char=state.characters.find(c=>c.id===state.currentCharId);
   if(firstUser)conv.title=(char?char.name+' — ':'')+firstUser.content.substring(0,30)+'...';
   conv.updatedAt=Date.now();
   input.value='';autoResize(input);renderMessages();renderConvList();
@@ -1156,11 +1474,15 @@ function renderMessages(){
   if(!conv||!conv.messages.length){welcome.style.display='flex';container.style.display='none';container.innerHTML='';return;}
   welcome.style.display='none';container.style.display='block';
   container.innerHTML=conv.messages.map((msg,i)=>{
+    // Masquer les messages auto-continue (envoyés par le système)
+    if(msg.auto) return '';
     const isAI=msg.role==='assistant',isUser=msg.role==='user',isSys=msg.role==='system';
     const avHtml=isAI&&char?.avatar?`<img class="msg-avatar" src="${char.avatar}"/>`:'';
     const label=isUser?'🖊 Toi':isAI?`${avHtml}${char?.name||'✦ IA'}`:'ℹ Système';
     // Format narration for AI messages
     const content=isAI?formatNarration(msg.content):esc(msg.content);
+    // Photo embedded in user message
+    const photoHtml=msg.photo?`<div class="msg-photo"><img src="${msg.photo}"/></div>`:'';
     // TTS button for AI messages
     const ttsBtn=isAI?`<button class="tts-btn" onclick="event.stopPropagation();speakText(state.conversations.find(c=>c.id===state.currentConvId).messages[${i}].content,this)">🔊 Écouter</button>`:'';
     let acts='';
@@ -1169,8 +1491,13 @@ function renderMessages(){
       else if(isAI)acts=`<div class="msg-actions">${ttsBtn}<button class="msg-action-btn" onclick="regenerateMessage(${i})">🔄</button><button class="msg-action-btn" onclick="startEditMessage(${i})">✏</button><button class="msg-action-btn danger" onclick="deleteMessage(${i})">🗑</button></div>`;
       else if(isSys)acts=`<div class="msg-actions"><button class="msg-action-btn danger" onclick="deleteSingleMessage(${i})">🗑</button></div>`;
     }
-    return `<div class="message ${msg.role}" ontouchstart="this.classList.add('show-actions')" ontouchend="setTimeout(()=>this.classList.remove('show-actions'),3000)"><div class="message-label">${label}</div><div class="message-bubble">${content}</div>${acts}</div>`;
+    return `<div class="message ${msg.role}" ontouchstart="this.classList.add('show-actions')" ontouchend="setTimeout(()=>this.classList.remove('show-actions'),3000)"><div class="message-label">${label}</div><div class="message-bubble">${photoHtml}${content}</div>${acts}</div>`;
   }).join('');
+  // Auto-continue button after last AI message
+  const lastMsg=conv.messages[conv.messages.length-1];
+  if(lastMsg&&lastMsg.role==='assistant'&&!state.isGenerating){
+    container.innerHTML+=`<div class="auto-continue-wrap"><button class="auto-continue-btn" onclick="autoContinue()">▶ Continuer la scène</button><button class="auto-continue-btn mild" onclick="autoContinue('mild')">💬 Continuer doucement</button><button class="auto-continue-btn hot" onclick="autoContinue('escalate')">🔥 Intensifier</button></div>`;
+  }
   container.scrollTop=container.scrollHeight;
 }
 
@@ -1187,12 +1514,15 @@ function selectCharFromDropdown(id){closeCharSelectDropdown();startChatWithChar(
 async function saveGlobalConfig(){
   state.config.apiKey=document.getElementById('cfgApiKey').value.trim();
   state.config.model=document.getElementById('cfgModel').value.trim()||'Sao10K/L3.3-70B-Euryale-v2.3';
+  state.config.visionModel=document.getElementById('cfgVisionModel').value.trim()||'coder3101/gemma-3-27b-it-heretic-v2';
   state.config.temperature=parseFloat(document.getElementById('cfgTemp').value)||0.85;
   state.config.maxTokens=parseInt(document.getElementById('cfgMaxTokens').value)||600;
   state.config.systemPrompt=document.getElementById('cfgSystemPrompt').value||DEFAULT_SYSTEM_PROMPT;
   state.config.ttsVoice=document.getElementById('cfgTtsVoice').value;
   state.config.ttsRate=parseFloat(document.getElementById('cfgTtsRate').value)||0.9;
   state.config.ttsPitch=parseFloat(document.getElementById('cfgTtsPitch').value)||1.1;
+  state.config.playerName=document.getElementById('cfgPlayerName').value.trim();
+  // kinks already updated via toggleKink()
   await dbPut('config','main',state.config);showToast('✓ Config sauvegardée !');
 }
 
