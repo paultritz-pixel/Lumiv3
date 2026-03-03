@@ -877,12 +877,28 @@ function spawnParticle(color){
 // ================================================================
 //  NARRATION FORMATTING — *actions* in italic, "dialogue" in accent
 // ================================================================
-function formatNarration(html){
-  // *text* → italic action
-  html=html.replace(/\*([^*]+)\*/g,'<span class="narration-action">$1</span>');
-  // "text" → colored dialogue
-  html=html.replace(/"([^"]+)"/g,'<span class="narration-dialogue">"$1"</span>');
-  return html;
+function formatNarration(rawText){
+  // On travaille sur le texte BRUT (pas échappé) pour que les regex matchent correctement.
+  // Étape 1 : repérer les *actions* et "dialogues" et les marquer avec des placeholders uniques
+  let parts = [];
+  let idx = 0;
+  // Remplacer *actions* par des marqueurs
+  rawText = rawText.replace(/\*([^*]+)\*/g, (m, p1) => {
+    const key = `__ACT${idx++}__`;
+    parts.push({key, html:`<span class="narration-action">${esc(p1)}</span>`});
+    return key;
+  });
+  // Remplacer "dialogues" par des marqueurs
+  rawText = rawText.replace(/"([^"]+)"/g, (m, p1) => {
+    const key = `__DLG${idx++}__`;
+    parts.push({key, html:`<span class="narration-dialogue">"${esc(p1)}"</span>`});
+    return key;
+  });
+  // Étape 2 : échapper tout le reste
+  let result = esc(rawText);
+  // Étape 3 : remettre les vrais spans HTML à la place des marqueurs
+  parts.forEach(p => { result = result.replace(p.key, p.html); });
+  return result;
 }
 
 // ================================================================
@@ -1092,7 +1108,7 @@ function renderMessages(){
     const avHtml=isAI&&char?.avatar?`<img class="msg-avatar" src="${char.avatar}"/>`:'';
     const label=isUser?'🖊 Toi':isAI?`${avHtml}${char?.name||'✦ IA'}`:'ℹ Système';
     // Format narration for AI messages
-    const content=isAI?formatNarration(esc(msg.content)):esc(msg.content);
+    const content=isAI?formatNarration(msg.content):esc(msg.content);
     // TTS button for AI messages
     const ttsBtn=isAI?`<button class="tts-btn" onclick="event.stopPropagation();speakText(state.conversations.find(c=>c.id===state.currentConvId).messages[${i}].content,this)">🔊 Écouter</button>`:'';
     let acts='';
