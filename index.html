@@ -1247,6 +1247,8 @@ function buildSystemPrompt(char){
     }
     // Recall instruction
     p+='\n--- MEMORY BEHAVIOR ---\nYou REMEMBER past interactions. Spontaneously reference memorable past moments when it feels natural — a position they loved, a sound they made, something they said, how they reacted. This creates intimacy and continuity. Don\'t overdo it — one or two natural callbacks per response maximum.\n';
+    // Anti-repetition
+    p+='\n--- CRITICAL: NO REPETITION ---\nNEVER repeat yourself. Each response must be fresh and distinct. Rules:\n- Never reuse phrases, actions, or descriptions from your previous messages.\n- Vary your sentence openers — never start two messages the same way.\n- Use different vocabulary each time. If you said "whisper" last time, use "murmur", "breathe", "hiss" etc.\n- Progress the scene forward — never loop back to a previous state.\n- If the scene involves physical acts, change positions, angles, focus areas, or dynamics each message.\n- Your dialogue must be unique each time — never repeat the same lines or similar ones.\n';
   }
   return p;
 }
@@ -1429,11 +1431,34 @@ async function generateAIResponse(){
   showTyping();state.isGenerating=true;document.getElementById('sendBtn').disabled=true;
   try{
     const sp=buildSystemPrompt(char);
+    // Build messages, injecting anti-repetition hint before last message
+    var apiMsgs=conv.messages.filter(m=>m.role!=='system');
+    // If last 2+ AI messages exist, add anti-repetition instruction
+    var aiMsgs=apiMsgs.filter(m=>m.role==='assistant');
+    var antiRepeat='';
+    if(aiMsgs.length>=1){
+      var lastAI=aiMsgs[aiMsgs.length-1].content;
+      // Extract key phrases from last AI message to explicitly avoid
+      var lastSentences=lastAI.split(/[.!?\n]/).filter(s=>s.trim().length>20).slice(0,3).map(s=>s.trim().substring(0,60));
+      if(lastSentences.length>0){
+        antiRepeat='\n[ANTI-REPETITION: Your previous response contained these phrases — do NOT reuse them or any similar phrasing: "'+lastSentences.join('", "')+'"... Use completely different wording, actions, positions, and descriptions. Vary your sentence structure. Never start two consecutive messages the same way.]';
+      }
+    }
+    // Append anti-repeat to the last message in context
+    if(antiRepeat&&apiMsgs.length>0){
+      var lastIdx=apiMsgs.length-1;
+      apiMsgs=apiMsgs.map(function(m,idx){
+        if(idx===lastIdx&&m.role==='user') return{role:m.role,content:m.content+antiRepeat};
+        return m;
+      });
+    }
     const res=await fetch('https://api.featherless.ai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.config.apiKey}`},
-      body:JSON.stringify({model:state.config.model,messages:[{role:'system',content:sp},...conv.messages.filter(m=>m.role!=='system')],temperature:state.config.temperature,max_tokens:state.config.maxTokens})});
+      body:JSON.stringify({model:state.config.model,messages:[{role:'system',content:sp},...apiMsgs],temperature:state.config.temperature,max_tokens:state.config.maxTokens,frequency_penalty:0.7,presence_penalty:0.5,repetition_penalty:1.15})});
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${res.status}`);}
-    const data=await res.json();const ai=data.choices?.[0]?.message?.content;
+    const data=await res.json();var ai=data.choices?.[0]?.message?.content;
     if(ai){
+      // Post-processing: detect and remove duplicated paragraphs
+      ai=removeDuplicateParagraphs(ai);
       conv.messages.push({role:'assistant',content:ai});conv.updatedAt=Date.now();
       await incrementAffinity(state.currentCharId, 2);
       // Visual effects based on response intensity
@@ -1442,9 +1467,38 @@ async function generateAIResponse(){
       // Update memory
       await updateMemory(state.currentCharId);
     }
-  }catch(err){console.error(err);conv.messages.push({role:'system',content:`❌ ${err.message}`});}
+  }catch(err){console.error(err);conv.messages.push({role:'system',content:'❌ '+err.message});}
   await dbPut('conversations',null,conv);
   state.isGenerating=false;document.getElementById('sendBtn').disabled=false;hideTyping();renderMessages();
+}
+
+// Remove duplicate paragraphs/sections from AI output
+function removeDuplicateParagraphs(text){
+  var paragraphs=text.split('\n\n');
+  if(paragraphs.length<=1)return text;
+  var seen={};var cleaned=[];
+  for(var p=0;p<paragraphs.length;p++){
+    // Normalize for comparison: lowercase, trim, remove extra spaces
+    var key=paragraphs[p].trim().toLowerCase().replace(/\s+/g,' ');
+    if(key.length<10){cleaned.push(paragraphs[p]);continue;} // keep short lines
+    // Check if we already saw something very similar (80%+ overlap)
+    var isDupe=false;
+    for(var s in seen){
+      if(similarity(key,s)>0.8){isDupe=true;break;}
+    }
+    if(!isDupe){seen[key]=1;cleaned.push(paragraphs[p]);}
+  }
+  return cleaned.join('\n\n');
+}
+// Simple similarity check (Jaccard on words)
+function similarity(a,b){
+  var wa=a.split(' '),wb=b.split(' ');
+  var setA={},setB={},inter=0,union=0;
+  wa.forEach(function(w){setA[w]=1;});
+  wb.forEach(function(w){setB[w]=1;});
+  for(var w in setA){if(setB[w])inter++;union++;}
+  for(var w in setB){if(!setA[w])union++;}
+  return union>0?inter/union:0;
 }
 
 // Message actions
